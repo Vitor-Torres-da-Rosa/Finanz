@@ -1410,13 +1410,23 @@
 (function () {
   'use strict';
 
-  var VERSAO = '3.9.4';
+  var VERSAO = '3.9.5';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '3.9.5',
+      data: '2026-09-07',
+      itens: [
+        'A causa do "não deu para abrir o arquivo": ao voltar do seletor, o app procurava atualização, achava a versão nova e se recarregava sozinho no meio da leitura.',
+        'Agora o app só recarrega quando você toca em "Atualizar" no aviso de versão nova, e nunca procura atualização enquanto está lendo um arquivo.',
+        'O conteúdo do arquivo é ancorado no instante em que você escolhe ele, então nada mais tira ele do meio do caminho.',
+        'Se algum dia falhar de novo, o aviso mostra a versão do app e por quais caminhos eu tentei ler.'
+      ]
+    },
     {
       versao: '3.9.4',
       data: '2026-09-07',
@@ -4555,6 +4565,10 @@
   var agora = new Date();
   var mesAtivo = { ano: agora.getFullYear(), mes: agora.getMonth() };
   var telaAtiva = 'inicio';
+
+  // Enquanto isto for maior que zero o app está lendo um arquivo. Recarregar
+  // a página nessa hora mata a leitura pela metade.
+  var lendoArquivo = 0;
 
   // Guardo a marca do "Compartilhar" antes de qualquer coisa e limpo a barra
   // de endereço, para não repetir a importação se a página recarregar.
@@ -11754,11 +11768,12 @@
   // O Android às vezes entrega um arquivo que o FileReader não consegue
   // abrir (veio da nuvem, ou o sistema recolheu a página enquanto o seletor
   // estava aberto). Por isso tento dois caminhos antes de desistir.
-  function bytesDoArquivo(arquivo) {
+  function bytesDoArquivo(arquivo, ancora) {
     return new Promise(function (ok, erro) {
       if (!arquivo) { erro(new Error('sem arquivo')); return; }
       if (!arquivo.size) { erro(new Error('vazio')); return; }
       var ultimo = null;
+      var tentados = [];
 
       function bom(b) {
         var by = new Uint8Array(b);
@@ -11766,8 +11781,16 @@
         return false;
       }
 
+      var erroCru = erro;
+      erro = function (e) {
+        var novo = e || new Error('leitura falhou');
+        try { novo.tentados = tentados.join(', '); } catch (x) { /* alguns erros são selados */ }
+        erroCru(novo);
+      };
+
       // Caminho 4: em pedaços. Cada slice é outro blob, com leitura própria.
       function viaPedacos() {
+        tentados.push('pedacos');
         var pedaco = 262144;
         var partes = [];
         var pos = 0;
@@ -11799,6 +11822,7 @@
       // Caminho 3: pela rede interna do navegador. Em alguns aparelhos ele
       // funciona quando os dois de cima falham.
       function viaUrl() {
+        tentados.push('objectURL');
         var url;
         try { url = URL.createObjectURL(arquivo); }
         catch (e) { ultimo = ultimo || e; viaPedacos(); return; }
@@ -11814,6 +11838,7 @@
 
       // Caminho 2: o velho FileReader.
       function viaLeitor() {
+        tentados.push('FileReader');
         var leitor = new FileReader();
         leitor.onload = function () { if (!bom(leitor.result)) viaUrl(); };
         leitor.onerror = function () {
@@ -11824,29 +11849,42 @@
         catch (e) { ultimo = ultimo || e; viaUrl(); }
       }
 
-      // Caminho 1: o moderno.
-      if (typeof arquivo.arrayBuffer === 'function') {
-        arquivo.arrayBuffer().then(function (b) {
-          if (!bom(b)) viaLeitor();
-        }, function (e) { ultimo = e; viaLeitor(); });
+      // Caminho 1: a âncora feita na hora da escolha. É a que sobrevive a
+      // quase tudo, então vem antes das outras.
+      if (ancora) {
+        tentados.push('ancora');
+        fetch(ancora).then(function (r) { return r.arrayBuffer(); }).then(function (b) {
+          if (!bom(b)) comeco();
+        }, function (e) { ultimo = e; comeco(); });
         return;
       }
-      viaLeitor();
+      comeco();
+
+      // Caminho 2: o moderno.
+      function comeco() {
+        if (typeof arquivo.arrayBuffer === 'function') {
+          tentados.push('arrayBuffer');
+          arquivo.arrayBuffer().then(function (b) {
+            if (!bom(b)) viaLeitor();
+          }, function (e) { ultimo = ultimo || e; viaLeitor(); });
+          return;
+        }
+        viaLeitor();
+      }
     });
   }
 
   function recadoDeLeitura(e, arquivo) {
     var nome = (e && (e.name || e.message)) || '';
-    var detalhe = '\n\n(' + (nome || 'sem detalhe') +
+    var detalhe = '\n\n(v' + VERSAO + ' · ' + (nome || 'sem detalhe') +
       (arquivo && arquivo.name ? ' · ' + arquivo.name : '') +
-      (arquivo && arquivo.size ? ' · ' + Math.round(arquivo.size / 1024) + ' KB' : '') + ')';
+      (arquivo && arquivo.size ? ' · ' + Math.round(arquivo.size / 1024) + ' KB' : '') +
+      (e && e.tentados ? ' · tentei: ' + e.tentados : '') + ')';
 
     if (/NotFound/i.test(nome)) {
-      return 'O Android deixou escolher o arquivo, mas não deixou o Caixa ler o conteúdo. ' +
-        'Isso é uma trava do próprio sistema, não do aplicativo.\n\n' +
-        'Dois jeitos que funcionam:\n' +
-        '1. Abra o arquivo no gerenciador de arquivos, toque em Compartilhar e escolha o Caixa.\n' +
-        '2. Abra o extrato, copie o texto e use "Colar o extrato" aqui embaixo.' + detalhe;
+      return 'O arquivo foi escolhido, mas o conteúdo dele sumiu antes de eu terminar de ler.\n\n' +
+        'Tente escolher de novo. Se insistir, mande o arquivo pelo Compartilhar do celular, ' +
+        'ou use "Colar o extrato".' + detalhe;
     }
     if (/NotReadable|NotAllowed|Security/i.test(nome)) {
       return 'O Android bloqueou a leitura desse arquivo. Baixe ele para a pasta Downloads ' +
@@ -11859,11 +11897,11 @@
       'a partir do gerenciador de arquivos.' + detalhe;
   }
 
-  function lerArquivoExtrato(arquivo, soltar) {
+  function lerArquivoExtrato(arquivo, soltar, ancora) {
     var nome = nomeDoArquivo(arquivo);
     avisar('Abrindo o arquivo...');
 
-    bytesDoArquivo(arquivo).then(function (bytes) {
+    bytesDoArquivo(arquivo, ancora).then(function (bytes) {
       if (soltar) soltar();
       limparAviso();
       var comeco = Extrato.textoDeBytes(bytes.subarray(0, 2048));
@@ -12320,10 +12358,10 @@
     return tarefa;
   }
 
-  function restaurarBackup(arquivo, soltar) {
-    // Mesmo caminho teimoso do importar: quatro tentativas de leitura e um
+  function restaurarBackup(arquivo, soltar, ancora) {
+    // Mesmo caminho teimoso do importar: várias tentativas de leitura e um
     // recado de verdade quando o aparelho não deixa abrir.
-    bytesDoArquivo(arquivo).then(function (bytes) {
+    bytesDoArquivo(arquivo, ancora).then(function (bytes) {
       if (soltar) soltar();
       var bruto;
       try {
@@ -12437,6 +12475,8 @@
 
   // ---------- Service worker ----------
 
+  var atualizacaoPedida = false;
+
   function mostrarAvisoDeVersao(trabalhador) {
     if ($('avisoVersao')) return;
     var aviso = no('div', 'aviso');
@@ -12445,6 +12485,7 @@
     var b = botao(null, 'Atualizar', function () {
       b.disabled = true;
       b.textContent = 'Atualizando…';
+      atualizacaoPedida = true;
       trabalhador.postMessage({ tipo: 'PULAR_ESPERA' });
     });
     aviso.appendChild(b);
@@ -12457,6 +12498,10 @@
     var recarregando = false;
     navigator.serviceWorker.addEventListener('controllerchange', function () {
       if (recarregando) return;
+      // O app só recarrega quando a pessoa pediu, no aviso de versão nova.
+      // Recarregar sozinho derrubava a leitura de arquivo pela metade: o
+      // seletor devolve o arquivo, a página se recarrega e o conteúdo some.
+      if (!atualizacaoPedida) return;
       recarregando = true;
       location.reload();
     });
@@ -12477,6 +12522,9 @@
 
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState !== 'visible') return;
+      // Voltar do seletor de arquivos também dispara isto. Procurar
+      // atualização bem agora é o começo da confusão.
+      if (lendoArquivo || folhaAberta || dialogoAberto) return;
       navigator.serviceWorker.getRegistration().then(function (r) {
         if (r) r.update().catch(function () {});
       });
@@ -12501,12 +12549,22 @@
     campo.addEventListener('change', function (evento) {
       var arquivo = evento.target.files && evento.target.files[0];
       if (!arquivo) return;
+
+      // Ancora o conteúdo agora, ainda dentro do evento: o endereço de blob
+      // segura os dados mesmo que o campo seja limpo ou o arquivo saia de
+      // vista. É a leitura mais teimosa que existe no navegador.
+      var ancora = '';
+      try { ancora = URL.createObjectURL(arquivo); } catch (e) { ancora = ''; }
+
+      lendoArquivo += 1;
       var soltou = false;
       usar(arquivo, function () {
         if (soltou) return;
         soltou = true;
+        lendoArquivo = Math.max(0, lendoArquivo - 1);
         try { campo.value = ''; } catch (e) { /* nada a fazer */ }
-      });
+        if (ancora) setTimeout(function () { URL.revokeObjectURL(ancora); }, 1000);
+      }, ancora);
     });
   }
 
