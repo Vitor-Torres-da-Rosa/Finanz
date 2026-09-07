@@ -1415,13 +1415,21 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.0.0';
+  var VERSAO = '4.0.1';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '4.0.1',
+      data: '2026-09-07',
+      itens: [
+        'Trocar de página na conferência não mexe mais a tela: você continua olhando para o mesmo lugar, só a lista muda.',
+        'Marcar e desmarcar todos também deixaram de pular para o topo.'
+      ]
+    },
     {
       versao: '4.0.0',
       data: '2026-09-07',
@@ -12331,6 +12339,11 @@
     var itens = dados.itens;
     var contaId = dados.contaId || '__nova__';
 
+    // Remontar a folha zera a rolagem. Guardo onde a tela estava para
+    // devolver no fim: trocar de página não pode mexer o que você olha.
+    var folhaEl = $('folha');
+    var rolagem = folhaEl.classList.contains('aberta') ? folhaEl.scrollTop : 0;
+
     itens.forEach(function (it) {
       if (it.repetido === undefined || it.contaConferida !== contaId) {
         it.repetido = jaTemIgual(it, contaId);
@@ -12429,24 +12442,17 @@
         var antes = botao('btn-mini', '‹ Anteriores', function () {
           dados.pagina = pagina - 1;
           montarFolhaExtrato();
-          rolarParaLista();
         });
         antes.disabled = pagina === 0;
         var depois = botao('btn-mini', 'Próximos ›', function () {
           dados.pagina = pagina + 1;
           montarFolhaExtrato();
-          rolarParaLista();
         });
         depois.disabled = pagina >= paginas - 1;
         juntar(barra, antes,
           no('span', 'paginas-conta', (de + 1) + '–' + ate + ' de ' + itens.length),
           depois);
         return barra;
-      }
-
-      function rolarParaLista() {
-        var alvo = $('folha').querySelector('.lista-extrato');
-        if (alvo) alvo.scrollIntoView({ block: 'start' });
       }
 
       if (paginas > 1) lista.appendChild(barraDePaginas());
@@ -12495,6 +12501,8 @@
       pintarResumo();
       folha.appendChild(forma);
     });
+
+    folhaEl.scrollTop = rolagem;
   }
 
   // Trocou a categoria de um lançamento: os outros do mesmo lugar quase
