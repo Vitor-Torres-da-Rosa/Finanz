@@ -681,6 +681,12 @@
   .cabeca-sub { font-size: 11.5px; color: var(--suave); margin-top: 2px; }
   .cabeca-banco .btn-mini { flex: 0 0 auto; }
   .selo-curto { font-size: 12.5px; letter-spacing: -.2px; }
+  .caminho-conta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .caminho-conta .selo { width: 26px; height: 26px; border-radius: 8px; font-size: 10.5px; }
+  .seta-conta { color: var(--suave); font-size: 15px; }
+  .item-valor.azul { color: var(--azul); }
+  .marcar-todos { display: flex; align-items: center; gap: 11px; margin: -4px 0 16px;
+    font-size: 13.5px; color: var(--texto); }
   .paginas { display: flex; align-items: center; gap: 8px; padding: 10px 0; }
   .paginas .btn-mini { flex: 0 0 auto; padding: 8px 12px; }
   .paginas .btn-mini:disabled { opacity: .35; }
@@ -1408,20 +1414,30 @@
 
 <div class="toque" id="toque" role="status" aria-live="polite"></div>
 <input type="file" id="arquivoRestaurar" class="input-arquivo">
-<input type="file" id="arquivoExtrato" class="input-arquivo">
+<input type="file" id="arquivoExtrato" class="input-arquivo" multiple>
 
 <script src="config.js"></script>
 <script>
 (function () {
   'use strict';
 
-  var VERSAO = '4.1.0';
+  var VERSAO = '4.2.0';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '4.2.0',
+      data: '2026-09-07',
+      itens: [
+        'Importar extrato aceita vários arquivos de uma vez, um a um na conferência, dizendo em qual deles você está.',
+        'Sendo a mesma senha para todos, marque a caixinha no primeiro e os outros abrem sozinhos.',
+        'Transferência entre contas: quando a saída de uma conta bate com a entrada de outra, no mesmo dia e valor, aparece um cartão no Início para conferir.',
+        'Conferindo, você marca quais são transferência de verdade: elas viram uma só e saem das receitas e das despesas. As que desmarcar não são perguntadas de novo.'
+      ]
+    },
     {
       versao: '4.1.0',
       data: '2026-09-07',
@@ -1892,6 +1908,8 @@
       // Nome de origem -> categoria. O que a pessoa ensina numa importação
       // vale nas próximas.
       regrasCategoria: {},
+      // Pares que a pessoa disse que não são transferência entre contas.
+      paresIgnorados: [],
       tiposRegistro: [],
       clientes: [],
       servicos: [],
@@ -2069,6 +2087,12 @@
         .map(function (t) { return t.trim().slice(0, 30); })
         .filter(function (t) { return TIPOS_REGISTRO_BASE.indexOf(t) < 0; })
         .slice(0, 30);
+    }
+
+    if (Array.isArray(bruto.paresIgnorados)) {
+      limpo.paresIgnorados = bruto.paresIgnorados
+        .filter(function (k) { return typeof k === 'string' && k.indexOf('|') > 0; })
+        .slice(0, 4000);
     }
 
     if (bruto.regrasCategoria && typeof bruto.regrasCategoria === 'object') {
@@ -2876,6 +2900,7 @@
       reserva_manual: p.reservaManual,
       tipos_registro: estado.tiposRegistro || [],
       regras_categoria: estado.regrasCategoria || {},
+      pares_ignorados: estado.paresIgnorados || [],
       orcamento_geral: estado.orcamentos.geral,
       objetivos: p.objetivos || []
     };
@@ -2990,6 +3015,7 @@
       if (perfil.regras_categoria && typeof perfil.regras_categoria === 'object') {
         novo.regrasCategoria = perfil.regras_categoria;
       }
+      if (Array.isArray(perfil.pares_ignorados)) novo.paresIgnorados = perfil.pares_ignorados;
       novo.perfil.objetivos = perfil.objetivos || [];
       novo.orcamentos.geral = perfil.orcamento_geral || 0;
     }
@@ -5210,6 +5236,10 @@
       totalInvestido(faixaAnterior().ate), 'ouro'));
     tela.appendChild(kpis);
 
+    // Só aparece quando há algo para conferir.
+    var pares = paresDeTransferencia();
+    if (pares.length) tela.appendChild(cartaoDeTransferencias(pares));
+
     // Fluxo de caixa
     var cFluxo = cartao();
     cFluxo.appendChild(topoDeCartao('Fluxo de caixa', 'Ver todas', function () { irPara('transacoes'); }));
@@ -5307,6 +5337,198 @@
     tela.appendChild(cContas);
 
     tela.appendChild(cartaoDeCartoes());
+  }
+
+  // ---------- Transferências entre contas ----------
+  //
+  // Uma saída numa conta com a mesma data e o mesmo valor de uma entrada em
+  // outra conta é quase sempre o mesmo dinheiro andando de lugar. Isso não é
+  // receita nem despesa, mas eu não decido sozinho: só aponto.
+
+  function chaveDoPar(a, b) {
+    return a.id < b.id ? a.id + '|' + b.id : b.id + '|' + a.id;
+  }
+
+  function parIgnorado(a, b) {
+    var lista = estado.paresIgnorados || [];
+    return lista.indexOf(chaveDoPar(a, b)) >= 0;
+  }
+
+  function paresDeTransferencia() {
+    var saidas = [], entradas = [];
+    estado.lancamentos.forEach(function (l) {
+      if (!l.contaId) return;
+      if (l.tipo === 'saida') saidas.push(l);
+      else if (l.tipo === 'entrada') entradas.push(l);
+    });
+    if (!saidas.length || !entradas.length) return [];
+
+    // Entradas agrupadas por data e valor, para achar o par de uma vez.
+    var caixas = {};
+    entradas.forEach(function (l) {
+      var k = l.data + '|' + l.valor;
+      (caixas[k] || (caixas[k] = [])).push(l);
+    });
+
+    var usados = {};
+    var pares = [];
+    saidas.slice().sort(function (a, b) { return a.data < b.data ? -1 : a.data > b.data ? 1 : 0; })
+      .forEach(function (s) {
+        var lista = caixas[s.data + '|' + s.valor];
+        if (!lista) return;
+        for (var i = 0; i < lista.length; i++) {
+          var e = lista[i];
+          if (usados[e.id] || usados[s.id]) continue;
+          if (e.contaId === s.contaId) continue;
+          if (parIgnorado(s, e)) continue;
+          usados[e.id] = true;
+          usados[s.id] = true;
+          pares.push({ saida: s, entrada: e, chave: chaveDoPar(s, e) });
+          break;
+        }
+      });
+    return pares;
+  }
+
+  function cartaoDeTransferencias(pares) {
+    var c = cartao();
+    c.appendChild(topoDeCartao('Transferências entre contas', null));
+    var soma = pares.reduce(function (t, p) { return t + p.saida.valor; }, 0);
+    c.appendChild(no('div', 'linha-nota',
+      pares.length === 1
+        ? 'Achei 1 saída que bate com uma entrada em outra conta, no mesmo dia e no mesmo valor.'
+        : 'Achei ' + pares.length + ' saídas que batem com entradas em outras contas, no mesmo dia e no mesmo valor.'));
+    c.appendChild(no('div', 'valorao pequeno num azul', emReais(soma)));
+    c.appendChild(no('div', 'linha-nota',
+      'Enquanto não conferir, esse dinheiro conta como receita de um lado e despesa do outro.'));
+    var b = botao('btn btn-ouro', 'Conferir', function () { abrirFolhaTransferencias(); });
+    b.style.marginTop = '14px';
+    c.appendChild(b);
+    return c;
+  }
+
+  function abrirFolhaTransferencias() {
+    var pares = paresDeTransferencia();
+    if (!pares.length) { avisar('Nada para conferir.'); return; }
+    var marcados = {};
+    pares.forEach(function (p) { marcados[p.chave] = true; });
+
+    empilhar({ tipo: 'aba', voltar: function () {} });
+    montarFolhaTransferencias(pares, marcados);
+  }
+
+  function montarFolhaTransferencias(pares, marcados) {
+    var folhaEl = $('folha');
+    var rolagem = folhaEl.classList.contains('aberta') ? folhaEl.scrollTop : 0;
+
+    abrirFolha('Transferências entre contas', function (folha) {
+      var forma = no('div');
+      forma.appendChild(no('p', 'ajuda',
+        'Marque as que são o mesmo dinheiro passando de uma conta para outra. ' +
+        'Elas viram uma transferência só e deixam de contar como receita e como despesa. ' +
+        'As que você desmarcar continuam como estão, e eu não pergunto de novo.'));
+
+      var atalhos = no('div', 'atalhos-extrato');
+      atalhos.appendChild(botao('btn-mini', 'Marcar todas', function () {
+        pares.forEach(function (p) { marcados[p.chave] = true; });
+        montarFolhaTransferencias(pares, marcados);
+      }));
+      atalhos.appendChild(botao('btn-mini', 'Desmarcar todas', function () {
+        pares.forEach(function (p) { marcados[p.chave] = false; });
+        montarFolhaTransferencias(pares, marcados);
+      }));
+      forma.appendChild(atalhos);
+
+      var lista = no('div', 'lista-extrato');
+      pares.forEach(function (p) {
+        var de = achar(estado.contas, p.saida.contaId);
+        var para = achar(estado.contas, p.entrada.contaId);
+        var ligado = !!marcados[p.chave];
+
+        var linha = no('div', 'item-extrato' + (ligado ? '' : ' apagado'));
+        var marca = botao('caixinha' + (ligado ? ' marcada' : ''), ligado ? '✓' : '', function () {
+          marcados[p.chave] = !marcados[p.chave];
+          montarFolhaTransferencias(pares, marcados);
+        });
+        linha.appendChild(marca);
+
+        var meio = no('div', 'item-meio');
+        var caminho = no('div', 'item-desc');
+        juntar(caminho,
+          seloDeConta(de || { nome: '?', cor: CORES[0] }),
+          no('span', 'seta-conta', '→'),
+          seloDeConta(para || { nome: '?', cor: CORES[0] }));
+        caminho.className = 'caminho-conta';
+        meio.appendChild(caminho);
+        meio.appendChild(no('div', 'item-desc',
+          (de ? de.nome : 'conta apagada') + ' → ' + (para ? para.nome : 'conta apagada')));
+        var sub = no('div', 'item-sub');
+        sub.appendChild(no('span', null, dataBr(p.saida.data)));
+        sub.appendChild(no('span', null, (p.saida.descricao || p.saida.categoria).slice(0, 34)));
+        meio.appendChild(sub);
+        linha.appendChild(meio);
+
+        linha.appendChild(no('div', 'item-valor azul', emReais(p.saida.valor)));
+        lista.appendChild(linha);
+      });
+      forma.appendChild(lista);
+
+      var quantas = pares.filter(function (p) { return marcados[p.chave]; }).length;
+      var acoes = no('div', 'acoes');
+      acoes.appendChild(botao('btn btn-ouro',
+        quantas ? 'Juntar ' + quantas + ' transferência' + (quantas > 1 ? 's' : '') : 'Guardar as respostas',
+        function () { aplicarTransferencias(pares, marcados); }));
+      forma.appendChild(acoes);
+      folha.appendChild(forma);
+    });
+
+    folhaEl.scrollTop = rolagem;
+  }
+
+  function aplicarTransferencias(pares, marcados) {
+    var juntar = pares.filter(function (p) { return marcados[p.chave]; });
+    var ignorar = pares.filter(function (p) { return !marcados[p.chave]; });
+
+    perguntar({
+      titulo: juntar.length ? 'Juntar ' + juntar.length + ' transferência(s)?' : 'Guardar as respostas?',
+      texto: (juntar.length
+        ? 'Cada par vira uma transferência só, sai das receitas e das despesas, e o saldo das duas contas continua igual. '
+        : '') +
+        (ignorar.length ? ignorar.length + ' par(es) ficam como estão e eu não pergunto de novo.' : ''),
+      ok: 'Confirmar'
+    }, function () {
+      if (!estado.paresIgnorados) estado.paresIgnorados = [];
+      ignorar.forEach(function (p) {
+        if (estado.paresIgnorados.indexOf(p.chave) < 0) estado.paresIgnorados.push(p.chave);
+      });
+
+      var fora = {};
+      juntar.forEach(function (p, i) {
+        fora[p.saida.id] = true;
+        fora[p.entrada.id] = true;
+        marcarExcluido('lancamentos', p.saida.id);
+        marcarExcluido('lancamentos', p.entrada.id);
+        estado.lancamentos.push({
+          id: novoId(),
+          tipo: 'transferencia',
+          valor: p.saida.valor,
+          descricao: p.saida.descricao || 'Transferência entre contas',
+          categoria: 'Transferência',
+          data: p.saida.data,
+          contaId: p.saida.contaId,
+          contaDestinoId: p.entrada.contaId,
+          criadoEm: Date.now() + i
+        });
+      });
+      estado.lancamentos = estado.lancamentos.filter(function (l) { return !fora[l.id]; });
+
+      salvar();
+      voltarNavegacao();
+      setTimeout(function () {
+        desenhar();
+        avisar(juntar.length ? juntar.length + ' transferência(s) juntadas.' : 'Anotado.');
+      }, 240);
+    });
   }
 
   // ---------- Cartões de crédito ----------
@@ -12012,7 +12234,7 @@
       });
     }).then(function (arquivo) {
       if (!arquivo || !arquivo.size) return;
-      lerArquivoExtrato(arquivo);
+      lerVariosExtratos([arquivo], null, ['']);
     }).catch(function () {
       avisarCaixa('Nada chegou', 'Não consegui pegar o arquivo compartilhado. Tente de novo.', function () {});
     });
@@ -12182,28 +12404,94 @@
       'a partir do gerenciador de arquivos.' + detalhe;
   }
 
-  function lerArquivoExtrato(arquivo, soltar, ancora) {
+  // A fila de arquivos escolhidos de uma vez. Cada um vira uma conferência
+  // separada, porque cada um pode ser de um banco e de uma conta diferente.
+  var filaExtrato = null;
+
+  function lerVariosExtratos(arquivos, soltar, ancoras) {
+    filaExtrato = {
+      arquivos: arquivos, ancoras: ancoras || [],
+      lidos: [], atual: 0, senhaDeTodos: '', soltar: soltar
+    };
+    proximoDaFila();
+  }
+
+  function proximoDaFila() {
+    var f = filaExtrato;
+    if (!f) return;
+    if (f.atual >= f.arquivos.length) {
+      if (f.soltar) f.soltar();
+      var lidos = f.lidos;
+      filaExtrato = null;
+      limparAviso();
+      if (!lidos.length) return;
+      mostrarFilaLida(lidos);
+      return;
+    }
+    var i = f.atual;
+    avisar(f.arquivos.length > 1
+      ? 'Lendo o arquivo ' + (i + 1) + ' de ' + f.arquivos.length + '...'
+      : 'Abrindo o arquivo...');
+    lerUmExtrato(f.arquivos[i], f.ancoras[i] || '', function (lido, problema) {
+      if (lido && lido.itens.length) f.lidos.push({ arquivo: f.arquivos[i], lido: lido });
+      else if (f.arquivos.length === 1) { queixarDoArquivo(problema); }
+      else f.lidos.push({ arquivo: f.arquivos[i], lido: null, problema: problema });
+      f.atual += 1;
+      proximoDaFila();
+    });
+  }
+
+  function mostrarFilaLida(lidos) {
+    var bons = lidos.filter(function (x) { return x.lido && x.lido.itens.length; });
+    if (!bons.length) { queixarDoArquivo(lidos[0] && lidos[0].problema); return; }
+    var ruins = lidos.length - bons.length;
+    if (ruins) {
+      avisarCaixa('Alguns arquivos não deram',
+        ruins + ' de ' + lidos.length + ' arquivos não tinham lançamentos que eu soubesse ler. ' +
+        'Vou seguir com os outros ' + bons.length + '.', function () { abrirLote(bons, 0); });
+      return;
+    }
+    abrirLote(bons, 0);
+  }
+
+  // Um arquivo por vez na conferência, sabendo em qual deles estamos.
+  function abrirLote(bons, indice) {
+    if (indice >= bons.length) return;
+    var atual = bons[indice];
+    mostrarExtrato(atual.lido, atual.arquivo, '', {
+      indice: indice, total: bons.length,
+      seguir: function () { abrirLote(bons, indice + 1); }
+    });
+  }
+
+  function queixarDoArquivo(problema) {
+    var recado = problema === 'imagem'
+      ? 'Esse PDF é uma imagem escaneada, sem texto por dentro. Peça ao banco o extrato em PDF normal, OFX, CSV ou Excel.'
+      : problema === 'planilha'
+        ? 'Não consegui abrir essa planilha. Se for .xls antigo, salve como .xlsx ou baixe em CSV.'
+        : problema === 'formato'
+          ? 'Li o arquivo, mas não achei lançamentos com data e valor. Se o seu banco tiver OFX, CSV ou Excel, esse costuma vir mais certinho.'
+          : 'Não achei lançamentos nesse arquivo. Tente o extrato ou a fatura em PDF, OFX, CSV ou Excel baixados do aplicativo do banco.';
+    avisarCaixa('Não achei lançamentos', recado, function () {});
+  }
+
+  function lerUmExtrato(arquivo, ancora, pronto) {
     var nome = nomeDoArquivo(arquivo);
-    avisar('Abrindo o arquivo...');
 
     bytesDoArquivo(arquivo, ancora).then(function (bytes) {
-      if (soltar) soltar();
-      limparAviso();
       var comeco = Extrato.textoDeBytes(bytes.subarray(0, 2048));
 
       if (comeco.indexOf('%PDF') >= 0 || /\.pdf$/.test(nome)) {
-        avisar('Lendo o PDF...');
-        tentarPdf(bytes, '', arquivo);
+        abrirPdfDaFila(bytes, arquivo, filaExtrato ? filaExtrato.senhaDeTodos : '', false, pronto);
         return;
       }
 
       // Planilha do Excel é um zip: começa com PK.
       if ((bytes[0] === 0x50 && bytes[1] === 0x4B) || /\.xlsx?$/.test(nome)) {
-        avisar('Lendo a planilha...');
         Extrato.lerXlsx(bytes).then(function (linhas) {
-          if (!linhas || !linhas.length) { mostrarExtrato(null, arquivo, 'planilha'); return; }
-          mostrarExtrato(Extrato.lerTabela(linhas, nome), arquivo, '');
-        }, function () { mostrarExtrato(null, arquivo, 'planilha'); });
+          if (!linhas || !linhas.length) { pronto(null, 'planilha'); return; }
+          pronto(Extrato.lerTabela(linhas, nome), '');
+        }, function () { pronto(null, 'planilha'); });
         return;
       }
 
@@ -12216,48 +12504,54 @@
       var lido;
       if (/<OFX|OFXHEADER|<STMTTRN>/i.test(comeco + texto.slice(0, 4000))) lido = Extrato.lerOfx(texto, nome);
       else lido = Extrato.lerCsv(texto, nome);
-      mostrarExtrato(lido, arquivo, lido.itens.length ? '' : 'csv');
+      pronto(lido, lido.itens.length ? '' : 'csv');
     }, function (e) {
-      if (soltar) soltar();
       limparAviso();
-      // Tentar de novo resolve boa parte das vezes: o navegador costuma
-      // devolver o arquivo na segunda escolha.
       perguntar({
         titulo: 'Não deu para abrir',
         texto: recadoDeLeitura(e, arquivo),
-        ok: 'Colar o texto', cancelar: 'Tentar outro arquivo',
-        aoCancelar: function () { setTimeout(escolherComoDocumento, 200); }
+        ok: 'Colar o texto', cancelar: 'Seguir sem este',
+        aoCancelar: function () { pronto(null, 'leitura'); }
       }, function () {
+        pronto(null, 'leitura');
         setTimeout(abrirColarExtrato, 240);
       });
     });
   }
 
-  function tentarPdf(bytes, senha, arquivo) {
-    // O catch cobre só a leitura do arquivo. Se ele cobrisse a tela também,
-    // um erro de desenho viraria "PDF estranho" e esconderia o problema.
-    Extrato.lerPdf(bytes, senha).then(function (r) {
-      return r;
-    }, function (e) {
+  function abrirPdfDaFila(bytes, arquivo, senha, errou, pronto) {
+    Extrato.lerPdf(bytes, senha).then(function (r) { return r; }, function (e) {
       avisar('Não deu para ler o PDF: ' + (e && e.message ? e.message : 'arquivo estranho'));
       return null;
     }).then(function (r) {
-      if (!r) return;
-      if (r.precisaSenha) { pedirSenhaDoPdf(bytes, arquivo, !!senha); return; }
+      if (!r) { pronto(null, 'formato'); return; }
+      if (r.precisaSenha) {
+        // A senha guardada não serviu: pergunto de novo, agora para este.
+        pedirSenhaDoPdf(bytes, arquivo, errou || !!senha, pronto);
+        return;
+      }
       var lido = Extrato.lerLinhas(r.linhas, nomeDoArquivo(arquivo));
-      mostrarExtrato(lido, arquivo, lido.itens.length ? '' : (r.linhas.length ? 'formato' : 'imagem'));
+      pronto(lido, lido.itens.length ? '' : (r.linhas.length ? 'formato' : 'imagem'));
     });
   }
 
-  function pedirSenhaDoPdf(bytes, arquivo, errou) {
-    // O "Lendo o PDF..." não faz sentido junto com o pedido de senha.
+  function pedirSenhaDoPdf(bytes, arquivo, errou, pronto) {
+    // O "Lendo o arquivo" não faz sentido junto com o pedido de senha.
     limparAviso();
-    empilhar({ tipo: 'aba', voltar: function () {} });
+    var f = filaExtrato;
+    var varios = f && f.arquivos.length > 1;
+    var respondeu = false;
+
+    empilhar({ tipo: 'aba', voltar: function () { if (!respondeu) { respondeu = true; pronto(null, 'senha'); } } });
     abrirFolha('PDF com senha', function (folha) {
       var forma = no('div');
       forma.appendChild(no('p', 'ajuda', errou
         ? 'Essa senha não abriu. Muitos bancos usam o CPF (só os números) ou a data de nascimento.'
         : 'Esse arquivo está trancado. Digite a senha que o banco pede para abrir ele.'));
+      if (varios) {
+        forma.appendChild(no('div', 'linha-nota',
+          'Arquivo ' + (f.atual + 1) + ' de ' + f.arquivos.length + ': ' + (arquivo.name || 'sem nome')));
+      }
 
       var entrada = no('input', 'entrada');
       entrada.type = 'password';
@@ -12266,13 +12560,38 @@
       entrada.placeholder = 'Senha do arquivo';
       forma.appendChild(campo('Senha', entrada));
 
+      var marcarTodos = null;
+      if (varios) {
+        var caixa = no('div', 'marcar-todos');
+        marcarTodos = botao('caixinha', '', function () {
+          marcarTodos.classList.toggle('marcada');
+          marcarTodos.textContent = marcarTodos.classList.contains('marcada') ? '✓' : '';
+        });
+        caixa.appendChild(marcarTodos);
+        caixa.appendChild(no('span', null, 'Usar esta senha para todos os arquivos'));
+        caixa.addEventListener('click', function (e) { if (e.target !== marcarTodos) marcarTodos.click(); });
+        forma.appendChild(caixa);
+      }
+
       var acoes = no('div', 'acoes');
       acoes.appendChild(botao('btn btn-ouro', 'Abrir', function () {
         var senha = entrada.value;
         if (!senha) { mostrarErro(forma, 'Digite a senha.'); return; }
+        if (marcarTodos && marcarTodos.classList.contains('marcada') && f) f.senhaDeTodos = senha;
+        respondeu = true;
         voltarNavegacao();
-        setTimeout(function () { avisar('Abrindo...'); tentarPdf(bytes, senha, arquivo); }, 240);
+        setTimeout(function () {
+          avisar('Abrindo...');
+          abrirPdfDaFila(bytes, arquivo, senha, true, pronto);
+        }, 240);
       }));
+      if (varios) {
+        acoes.appendChild(botao('btn btn-perigo', 'Pular este arquivo', function () {
+          respondeu = true;
+          voltarNavegacao();
+          setTimeout(function () { pronto(null, 'senha'); }, 240);
+        }));
+      }
       forma.appendChild(acoes);
       folha.appendChild(forma);
       setTimeout(function () { entrada.focus(); }, 270);
@@ -12286,7 +12605,7 @@
     });
   }
 
-  function mostrarExtrato(lido, arquivo, problema) {
+  function mostrarExtrato(lido, arquivo, problema, lote) {
     var itens = lido ? lido.itens : [];
     if (!itens.length) {
       var recado = problema === 'imagem'
@@ -12315,7 +12634,8 @@
       itens: itens, arquivo: arquivo,
       fatura: !!lido.fatura,
       banco: lido.banco || null,
-      contaId: contaSugerida(lido)
+      contaId: contaSugerida(lido),
+      lote: lote || null
     };
     abrirFolhaExtrato();
   }
@@ -12407,6 +12727,15 @@
       cabeca.appendChild(txtB);
       cabeca.appendChild(botao('btn-mini', 'Trocar', function () { escolherBanco(); }));
       forma.appendChild(cabeca);
+
+      // Vieram vários arquivos: mostra em qual deles você está.
+      if (dados.lote && dados.lote.total > 1) {
+        var qual = no('div', 'linha-nota');
+        qual.style.margin = '-8px 0 14px';
+        qual.textContent = 'Arquivo ' + (dados.lote.indice + 1) + ' de ' + dados.lote.total +
+          (dados.arquivo && dados.arquivo.name ? ' · ' + dados.arquivo.name : '');
+        forma.appendChild(qual);
+      }
 
       // ---- para qual conta vai ----
       var opcoes = estado.contas.map(function (c) {
@@ -12640,10 +12969,17 @@
       var datas = escolhidos.map(function (i) { return i.data; }).sort();
       periodo = { tipo: 'escolhido', de: datas[0], ate: datas[datas.length - 1] };
 
+      var lote = dados.lote;
       extratoLido = null;
       salvar();
       voltarNavegacao();
       setTimeout(function () {
+        // Veio um monte de arquivos de uma vez? O próximo entra agora.
+        if (lote && lote.seguir && lote.indice + 1 < lote.total) {
+          avisar(escolhidos.length + ' lançamento(s) importados. Vamos ao próximo arquivo.');
+          lote.seguir();
+          return;
+        }
         irPara('transacoes');
         avisar(escolhidos.length + ' lançamento(s) importados.');
       }, 240);
@@ -12899,31 +13235,41 @@
   // ao alcance. Limpar o campo antes de a leitura terminar solta esse
   // conteúdo, e aí a leitura morre com NotFoundError mesmo tendo o nome e
   // o tamanho certos. Por isso a limpeza só acontece no fim.
-  function comArquivoEscolhido(campo, usar) {
+  function comArquivoEscolhido(campo, usar, varios) {
     campo.addEventListener('change', function (evento) {
-      var arquivo = evento.target.files && evento.target.files[0];
-      if (!arquivo) return;
+      var lista = evento.target.files;
+      if (!lista || !lista.length) return;
 
       // Ancora o conteúdo agora, ainda dentro do evento: o endereço de blob
       // segura os dados mesmo que o campo seja limpo ou o arquivo saia de
       // vista. É a leitura mais teimosa que existe no navegador.
-      var ancora = '';
-      try { ancora = URL.createObjectURL(arquivo); } catch (e) { ancora = ''; }
+      var arquivos = [], ancoras = [];
+      for (var i = 0; i < lista.length; i++) {
+        arquivos.push(lista[i]);
+        var a = '';
+        try { a = URL.createObjectURL(lista[i]); } catch (e) { a = ''; }
+        ancoras.push(a);
+      }
 
       lendoArquivo += 1;
       var soltou = false;
-      usar(arquivo, function () {
+      function soltar() {
         if (soltou) return;
         soltou = true;
         lendoArquivo = Math.max(0, lendoArquivo - 1);
         try { campo.value = ''; } catch (e) { /* nada a fazer */ }
-        if (ancora) setTimeout(function () { URL.revokeObjectURL(ancora); }, 1000);
-      }, ancora);
+        setTimeout(function () {
+          ancoras.forEach(function (a) { if (a) URL.revokeObjectURL(a); });
+        }, 1000);
+      }
+
+      if (varios) usar(arquivos, soltar, ancoras);
+      else usar(arquivos[0], soltar, ancoras[0]);
     });
   }
 
   comArquivoEscolhido($('arquivoRestaurar'), restaurarBackup);
-  comArquivoEscolhido($('arquivoExtrato'), lerArquivoExtrato);
+  comArquivoEscolhido($('arquivoExtrato'), lerVariosExtratos, true);
 
   document.addEventListener('keydown', function (evento) {
     if (evento.key !== 'Escape') return;

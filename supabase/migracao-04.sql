@@ -9,3 +9,7 @@ alter table public.contas add column if not exists vencimento smallint not null 
 -- O que a pessoa ensina na importação ("esse nome é Combustível") vale nas
 -- próximas: nome de origem -> categoria.
 alter table public.perfis add column if not exists regras_categoria jsonb not null default '{}'::jsonb;
+
+-- Pares de lançamentos que a pessoa disse que NÃO são transferência entre
+-- contas, para o app não perguntar de novo.
+alter table public.perfis add column if not exists pares_ignorados jsonb not null default '[]'::jsonb;
