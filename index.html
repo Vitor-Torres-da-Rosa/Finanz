@@ -1410,13 +1410,23 @@
 (function () {
   'use strict';
 
-  var VERSAO = '3.9.2';
+  var VERSAO = '3.9.3';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '3.9.3',
+      data: '2026-09-07',
+      itens: [
+        'Parcelas em aberto: consertado o rastro de pedaços (uma de R$ 500 e outra de R$ 1.000). Agora elas são refeitas do zero a cada acerto, todas no valor combinado e com a sobra numa única última parcela.',
+        'No parcelamento dá para escolher o valor de cada parcela: o app descobre em quantas vezes cabe e põe o que sobrar na última.',
+        'Apagar as parcelas agora apaga o parcelamento inteiro, inclusive as já pagas — e elas não voltam sozinhas.',
+        'A opção de pagamento mínimo saiu do parcelamento e da parcela.'
+      ]
+    },
     {
       versao: '3.9.2',
       data: '2026-09-07',
@@ -4868,38 +4878,75 @@
   // acertada: o que sobrou é cortado do fim, o que faltou vira parcela
   // nova. Vale para pagamento novo, editado ou excluído — e conserta
   // sozinho um combinado que já estava fora de conta.
+  // Refaz as parcelas em aberto do zero, em vez de remendar a ponta. Assim
+  // elas ficam sempre no valor combinado, com a sobra numa última parcela —
+  // e não vira um rastro de pedaços a cada vez que o pagamento é editado.
   function acertarParcelas(clienteId, parcelaBase) {
-    var abertas = parcelasDoCliente(clienteId).filter(function (p) { return !parcelaPaga(p); });
-    var soma = abertas.reduce(function (s, p) { return s + p.valor; }, 0);
-    var restante = Math.max(resumoCliente(clienteId).restante, 0);
-    var diferenca = restante - soma;
-    if (diferenca === 0) { renumerarCliente(clienteId); return; }
+    var todas = parcelasDoCliente(clienteId);
+    // Sem parcela nenhuma eu não invento um plano: a pessoa apagou de propósito.
+    if (!todas.length) return;
 
-    if (diferenca < 0) {
-      var cortar = -diferenca;
+    var abertas = todas.filter(function (p) { return !parcelaPaga(p); });
+    var restante = Math.max(resumoCliente(clienteId).restante, 0);
+
+    function apagar(lista) {
+      if (!lista.length) return;
       var fora = {};
-      for (var i = abertas.length - 1; i >= 0 && cortar > 0; i--) {
-        var p = abertas[i];
-        if (p.valor <= cortar) {
-          cortar -= p.valor;
-          fora[p.id] = true;
-          marcarExcluido('parcelas', p.id);
-        } else {
-          p.valor -= cortar;
-          cortar = 0;
-        }
-      }
-      if (Object.keys(fora).length) {
-        estado.parcelas = estado.parcelas.filter(function (p) { return !fora[p.id]; });
-      }
+      lista.forEach(function (p) { fora[p.id] = true; marcarExcluido('parcelas', p.id); });
+      estado.parcelas = estado.parcelas.filter(function (p) { return !fora[p.id]; });
+    }
+
+    if (restante <= 0) {
+      apagar(abertas);
       renumerarCliente(clienteId);
       return;
     }
 
-    // Faltou: acrescenta no fim do combinado da parcela de referência.
-    var modelo = parcelaBase && achar(estado.parcelas, parcelaBase.id) ? parcelaBase
-      : (abertas[abertas.length - 1] || parcelasDoCliente(clienteId)[0]);
-    if (modelo) empurrarFalta(modelo, diferenca);
+    // O valor combinado por parcela é o maior do plano: as sobras são menores.
+    var padrao = 0;
+    todas.forEach(function (p) { if (p.valor > padrao) padrao = p.valor; });
+    if (padrao <= 0) padrao = restante;
+
+    var quantas = Math.max(1, Math.ceil(restante / padrao));
+    if (quantas > 240) { quantas = 240; padrao = Math.ceil(restante / 240); }
+
+    abertas.sort(function (a, b) {
+      if (a.vencimento !== b.vencimento) return a.vencimento < b.vencimento ? -1 : 1;
+      return (a.numero || 0) - (b.numero || 0);
+    });
+
+    var modelo = (parcelaBase && achar(estado.parcelas, parcelaBase.id)) || abertas[0] || todas[0];
+    var ultimoVencimento = '';
+    todas.forEach(function (p) { if (p.vencimento > ultimoVencimento) ultimoVencimento = p.vencimento; });
+
+    var sobrando = restante;
+    for (var i = 0; i < quantas; i++) {
+      var valor = i === quantas - 1 ? sobrando : Math.min(padrao, sobrando);
+      sobrando -= valor;
+
+      if (abertas[i]) {
+        abertas[i].valor = valor;
+        if (abertas[i].vencimento > ultimoVencimento) ultimoVencimento = abertas[i].vencimento;
+        continue;
+      }
+      ultimoVencimento = somaMeses(ultimoVencimento || hojeTexto(), 1);
+      estado.parcelas.push({
+        id: novoId(),
+        clienteId: clienteId,
+        servicoId: modelo ? modelo.servicoId : '',
+        numero: 0, total: 0,
+        valor: valor,
+        vencimento: ultimoVencimento,
+        minimo: 0,
+        jurosAtraso: modelo ? (modelo.jurosAtraso || 0) : 0,
+        quitadaEm: '', pagamentoId: '',
+        criadoEm: Date.now() + i
+      });
+    }
+
+    // Sobrou parcela em aberto além do necessário: sai.
+    if (abertas.length > quantas) apagar(abertas.slice(quantas));
+
     renumerarCliente(clienteId);
   }
 
@@ -6035,23 +6082,27 @@
           acoes.appendChild(bAcertar);
         }
 
-        var emAberto = abertasAgora;
-        if (emAberto.length) {
-          acoes.appendChild(botao('btn btn-perigo', 'Apagar as ' + emAberto.length + ' parcelas em aberto', function () {
+        var todasParcelas = parcelasDoCliente(id);
+        if (todasParcelas.length) {
+          var pagasAgora = todasParcelas.filter(parcelaPaga).length;
+          acoes.appendChild(botao('btn btn-perigo', 'Apagar as ' + todasParcelas.length + ' parcelas', function () {
             perguntar({
-              titulo: 'Apagar as parcelas em aberto?',
-              texto: 'Saem as ' + emAberto.length + ' parcelas que ainda não foram pagas, somando ' +
-                emReais(emAberto.reduce(function (soma, p) { return soma + faltaNaParcela(p); }, 0)) +
-                '. As já pagas continuam. Os registros e os pagamentos não são tocados.',
-              ok: 'Apagar parcelas', tom: 'perigo'
+              titulo: 'Apagar o parcelamento inteiro?',
+              texto: 'Saem todas as ' + todasParcelas.length + ' parcelas' +
+                (pagasAgora ? (pagasAgora === 1 ? ', inclusive a que já foi paga'
+                                                : ', inclusive as ' + pagasAgora + ' já pagas') : '') +
+                '. Os registros e os pagamentos continuam como estão, e o que o cliente deve não muda — ' +
+                'só o parcelamento é desfeito.',
+              ok: 'Apagar tudo', tom: 'perigo'
             }, function () {
-              emAberto.forEach(function (p) { marcarExcluido('parcelas', p.id); });
               var fora = {};
-              emAberto.forEach(function (p) { fora[p.id] = true; });
+              todasParcelas.forEach(function (p) { fora[p.id] = true; marcarExcluido('parcelas', p.id); });
               estado.parcelas = estado.parcelas.filter(function (p) { return !fora[p.id]; });
+              // Os pagamentos ficam, mas soltos: sem parcela para apontar.
+              estado.pagamentos.forEach(function (g) { if (fora[g.parcelaId]) g.parcelaId = ''; });
               salvar();
               montarFichaCliente(id);
-              avisar('Parcelas apagadas.');
+              avisar('Parcelamento apagado.');
             });
           }));
         }
@@ -6290,27 +6341,50 @@
 
   // totalAlvo > 0 manda: o total é o que você escreveu, e as parcelas saem
   // da divisão dele. Sem ele, o total vem do valor mais o acréscimo.
-  function calcularParcelas(base, vezes, modo, acrescimo, primeira, totalAlvo) {
+  // A sobra da divisão fica na última parcela, que é onde a pessoa espera.
+  function espalhar(total, vezes, primeira) {
+    var fatia = Math.floor(total / vezes);
+    var itens = [];
+    var acumulado = 0;
+    for (var i = 0; i < vezes; i++) {
+      var valor = i === vezes - 1 ? total - acumulado : fatia;
+      acumulado += valor;
+      itens.push({ numero: i + 1, total: vezes, valor: valor, vencimento: somaMeses(primeira, i) });
+    }
+    return itens;
+  }
+
+  // Escolhendo o valor da parcela, a quantidade sai da conta e o que ficar
+  // quebrado vai para a última.
+  function porValorDaParcela(total, porParcela, primeira) {
+    var quantas = Math.max(1, Math.min(Math.ceil(total / porParcela), 240));
+    var itens = [];
+    var sobrando = total;
+    for (var i = 0; i < quantas; i++) {
+      var valor = i === quantas - 1 ? sobrando : Math.min(porParcela, sobrando);
+      sobrando -= valor;
+      itens.push({ numero: i + 1, total: quantas, valor: valor, vencimento: somaMeses(primeira, i) });
+    }
+    return itens;
+  }
+
+  function calcularParcelas(base, vezes, modo, acrescimo, primeira, totalAlvo, porParcela) {
     vezes = Math.max(1, Math.min(inteiro(vezes) || 1, 60));
     var itens = [];
 
     if (totalAlvo > 0) {
-      var fatiaT = Math.floor(totalAlvo / vezes);
-      var sobraT = totalAlvo - fatiaT * vezes;
-      for (var j = 0; j < vezes; j++) {
-        itens.push({
-          numero: j + 1, total: vezes,
-          valor: fatiaT + (j === 0 ? sobraT : 0),
-          vencimento: somaMeses(primeira, j)
-        });
+      if (porParcela > 0) {
+        itens = porValorDaParcela(totalAlvo, porParcela, primeira);
+        return { itens: itens, total: totalAlvo, acrescimoTotal: totalAlvo - base, manual: true, porParcela: true };
       }
+      itens = espalhar(totalAlvo, vezes, primeira);
       return { itens: itens, total: totalAlvo, acrescimoTotal: totalAlvo - base, manual: true };
     }
 
     var fatia = Math.floor(base / vezes);
     var sobra = base - fatia * vezes;
     for (var i = 0; i < vezes; i++) {
-      var semAcrescimo = fatia + (i === 0 ? sobra : 0);
+      var semAcrescimo = fatia + (i === vezes - 1 ? sobra : 0);
       var valor = semAcrescimo;
       if (modo === 'porcento' && acrescimo > 0) valor = Math.round(semAcrescimo * (1 + acrescimo / 100));
       if (modo === 'reais' && acrescimo > 0) valor = semAcrescimo + acrescimo;
@@ -6323,6 +6397,13 @@
       });
     }
     var total = itens.reduce(function (soma, p) { return soma + p.valor; }, 0);
+
+    // Com o valor da parcela escolhido, o acréscimo já está no total: só
+    // refaço a divisão pelo valor pedido.
+    if (porParcela > 0) {
+      return { itens: porValorDaParcela(total, porParcela, primeira), total: total,
+               acrescimoTotal: total - base, manual: false, porParcela: true };
+    }
     return { itens: itens, total: total, acrescimoTotal: total - base, manual: false };
   }
 
@@ -6364,6 +6445,17 @@
       var campoVezes = entradaSelecao(opcoesVezes, '1', 'Em quantas vezes');
       forma.appendChild(campo('Em quantas vezes', campoVezes));
 
+      // Escolher o valor da parcela é o outro jeito de dizer a mesma coisa:
+      // o app tira a quantidade da conta e deixa o quebrado na última.
+      var parcelaManual = 0;
+      var campoPorParcela = entradaValor(0, false);
+      forma.appendChild(campo('Ou o valor de cada parcela', campoPorParcela));
+      var notaParcela = no('div', 'linha-nota',
+        'Escrevendo aqui, o app descobre em quantas vezes cabe e põe o que sobrar na última parcela. ' +
+        'Deixe zerado para mandar pela quantidade de vezes.');
+      notaParcela.style.margin = '-8px 0 16px';
+      forma.appendChild(notaParcela);
+
       var campoModo = entradaSelecao([
         { valor: 'nenhum', rotulo: 'Sem acréscimo' },
         { valor: 'porcento', rotulo: 'Acrescentar % por parcela' },
@@ -6391,9 +6483,6 @@
       notaTotal.style.margin = '-8px 0 16px';
       forma.appendChild(notaTotal);
 
-      var campoMinimo = entradaValor(0, false);
-      forma.appendChild(campo('Pagamento mínimo por parcela (opcional)', campoMinimo));
-
       var campoJuros = entradaTextoNumero('', '0');
       forma.appendChild(campo('Juros por atraso, ao mês (opcional %)', campoJuros));
 
@@ -6414,7 +6503,7 @@
           digitosParaCentavos(campoValorEl.value),
           vezes, modo, lerAcrescimo(),
           ehData(campoData.value) ? campoData.value : hojeTexto(),
-          totalManual
+          totalManual, parcelaManual
         );
       }
 
@@ -6428,12 +6517,20 @@
         var c = contas();
         if (!totalManual) campoTotal.value = emReais(c.total);
 
+        // Mandando pelo valor da parcela, a quantidade de vezes segue a conta.
+        var quantas = c.itens.length;
+        if (c.porParcela && quantas !== vezes) {
+          vezes = quantas;
+          campoVezes.value = String(Math.min(quantas, 24));
+        }
+
         resumo.appendChild(no('div', 'rotulo', 'Vai ser cobrado'));
         resumo.appendChild(no('div', 'valorao pequeno num', emReais(c.total)));
-        var detalhe = vezes + 'x de ' + emReais(c.itens[0].valor);
-        if (vezes > 1 && c.itens[0].valor !== c.itens[vezes - 1].valor) {
-          detalhe = vezes + 'x — a primeira de ' + emReais(c.itens[0].valor) +
-            ' e as outras de ' + emReais(c.itens[vezes - 1].valor);
+        var primeiro = c.itens[0].valor, ultimo = c.itens[quantas - 1].valor;
+        var detalhe = quantas + 'x de ' + emReais(primeiro);
+        if (quantas > 1 && primeiro !== ultimo) {
+          detalhe = (quantas - 1) + 'x de ' + emReais(primeiro) +
+            ' e a última de ' + emReais(ultimo);
         }
         resumo.appendChild(no('div', 'linha-nota', detalhe));
         if (c.acrescimoTotal > 0) {
@@ -6444,11 +6541,6 @@
             'Desconto de ' + emReais(-c.acrescimoTotal) + ' sobre os ' + emReais(base) + ' combinados.'));
         }
 
-        var minimo = digitosParaCentavos(campoMinimo.value);
-        if (minimo > 0) {
-          resumo.appendChild(no('div', 'linha-nota',
-            'Mínimo aceito por parcela: ' + emReais(minimo) + '.'));
-        }
         var juros = comoNumero(campoJuros.value, 0);
         if (juros > 0) {
           resumo.appendChild(no('div', 'linha-nota',
@@ -6470,16 +6562,25 @@
       // Mexer no valor, nas vezes ou no acréscimo devolve o total ao cálculo.
       function recalcular() { totalManual = 0; pintarResumo(); }
       campoValorEl.addEventListener('input', recalcular);
+      campoPorParcela.addEventListener('input', function () {
+        parcelaManual = digitosParaCentavos(campoPorParcela.value);
+        pintarResumo();
+      });
       campoData.addEventListener('change', pintarResumo);
       campoPorcento.addEventListener('input', recalcular);
       campoReais.addEventListener('input', recalcular);
-      campoMinimo.addEventListener('input', pintarResumo);
       campoJuros.addEventListener('input', pintarResumo);
       campoTotal.addEventListener('input', function () {
         totalManual = digitosParaCentavos(campoTotal.value);
         pintarResumo();
       });
-      campoVezes.aoMudar = function (v) { vezes = parseInt(v, 10) || 1; recalcular(); };
+      campoVezes.aoMudar = function (v) {
+        // Escolher as vezes na mão desliga o comando pelo valor da parcela.
+        parcelaManual = 0;
+        campoPorParcela.value = emReais(0);
+        vezes = parseInt(v, 10) || 1;
+        recalcular();
+      };
       campoModo.aoMudar = function (v) {
         modo = v;
         caixaPorcento.style.display = v === 'porcento' ? '' : 'none';
@@ -6495,15 +6596,17 @@
         if (!ehData(campoData.value)) { mostrarErro(forma, 'Escolha a data da primeira parcela.'); return; }
         var c = contas();
 
+        var ultimaP = c.itens[c.itens.length - 1];
         perguntar({
-          titulo: 'Confirmar ' + vezes + 'x de ' + emReais(c.itens[0].valor) + '?',
+          titulo: 'Confirmar ' + c.itens.length + 'x de ' + emReais(c.itens[0].valor) + '?',
           texto: 'Total de ' + emReais(c.total) +
             (c.acrescimoTotal > 0 ? ', com ' + emReais(c.acrescimoTotal) + ' de acréscimo' : '') +
+            (c.itens.length > 1 && ultimaP.valor !== c.itens[0].valor
+              ? '. A última fica em ' + emReais(ultimaP.valor) : '') +
             '. Primeira em ' + dataBr(c.itens[0].vencimento) +
-            ', última em ' + dataBr(c.itens[c.itens.length - 1].vencimento) + '.',
+            ', última em ' + dataBr(ultimaP.vencimento) + '.',
           ok: 'Confirmar', icone: 'alvo'
         }, function () {
-          var minimoSalvo = digitosParaCentavos(campoMinimo.value);
           var jurosSalvo = Math.min(Math.max(comoNumero(campoJuros.value, 0), 0), 100);
           c.itens.forEach(function (p) {
             estado.parcelas.push({
@@ -6514,7 +6617,7 @@
               total: p.total,
               valor: p.valor,
               vencimento: p.vencimento,
-              minimo: Math.min(minimoSalvo, p.valor),
+              minimo: 0,
               jurosAtraso: jurosSalvo,
               quitadaEm: '',
               pagamentoId: '',
@@ -6525,7 +6628,7 @@
           if (c.acrescimoTotal > 0) {
             estado.servicos.push({
               id: novoId(), clienteId: clienteId,
-              nome: 'Acréscimo do parcelamento em ' + vezes + 'x',
+              nome: 'Acréscimo do parcelamento em ' + c.itens.length + 'x',
               tipo: TIPO_PADRAO, valor: c.acrescimoTotal,
               data: c.itens[0].vencimento, obs: '', criadoEm: Date.now()
             });
@@ -6558,9 +6661,6 @@
 
       var campoData = entradaData(parcela.vencimento);
       forma.appendChild(campo('Vence em', campoData));
-
-      var campoMinimo = entradaValor(parcela.minimo || 0, false);
-      forma.appendChild(campo('Pagamento mínimo (opcional)', campoMinimo));
 
       var campoJuros = entradaTextoNumero(parcela.jurosAtraso || '', '0');
       forma.appendChild(campo('Juros por atraso, ao mês (opcional %)', campoJuros));
@@ -6600,7 +6700,7 @@
         parcela.valor = valor;
         parcela.vencimento = campoData.value;
         parcela.servicoId = campoServico.value;
-        parcela.minimo = Math.min(digitosParaCentavos(campoMinimo.value), valor);
+        parcela.minimo = 0;
         parcela.jurosAtraso = Math.min(Math.max(comoNumero(campoJuros.value, 0), 0), 100);
         salvar();
         voltarNavegacao();
