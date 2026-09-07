@@ -681,6 +681,11 @@
   .cabeca-sub { font-size: 11.5px; color: var(--suave); margin-top: 2px; }
   .cabeca-banco .btn-mini { flex: 0 0 auto; }
   .selo-curto { font-size: 12.5px; letter-spacing: -.2px; }
+  .paginas { display: flex; align-items: center; gap: 8px; padding: 10px 0; }
+  .paginas .btn-mini { flex: 0 0 auto; padding: 8px 12px; }
+  .paginas .btn-mini:disabled { opacity: .35; }
+  .paginas-conta { flex: 1 1 auto; text-align: center; font-size: 12px; color: var(--suave);
+    font-variant-numeric: tabular-nums; }
   .atalhos-extrato { display: flex; gap: 8px; margin: 10px 0 2px; }
   .btn-mini { flex: 1 1 0; padding: 8px 10px; border-radius: 10px; font-size: 12.5px;
     font-weight: 600; border: 1px solid var(--borda); background: rgba(255,255,255,.03);
@@ -1410,13 +1415,23 @@
 (function () {
   'use strict';
 
-  var VERSAO = '3.9.6';
+  var VERSAO = '4.0.0';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '4.0.0',
+      data: '2026-09-07',
+      itens: [
+        'Descrições do extrato saem inteiras: "PO STO D E CO M BU STIVEL" virou "POSTO DE COMBUSTIVEL". Com a palavra certa, a categoria também acerta.',
+        'A lista de conferência vai por páginas de 100, com Anteriores e Próximos, para você ir e voltar à vontade.',
+        'Trocou a categoria de um lançamento? O app pergunta se vale para todos com o mesmo nome de origem — e guarda para as próximas importações.',
+        'No seletor de categoria dá para criar, renomear e excluir as suas. As de fábrica ficam como estão.'
+      ]
+    },
     {
       versao: '3.9.6',
       data: '2026-09-07',
@@ -1858,6 +1873,9 @@
       metas: [],
       orcamentos: { geral: 0, categorias: {} },
       categoriasExtras: { saida: [], entrada: [] },
+      // Nome de origem -> categoria. O que a pessoa ensina numa importação
+      // vale nas próximas.
+      regrasCategoria: {},
       tiposRegistro: [],
       clientes: [],
       servicos: [],
@@ -2035,6 +2053,15 @@
         .map(function (t) { return t.trim().slice(0, 30); })
         .filter(function (t) { return TIPOS_REGISTRO_BASE.indexOf(t) < 0; })
         .slice(0, 30);
+    }
+
+    if (bruto.regrasCategoria && typeof bruto.regrasCategoria === 'object') {
+      Object.keys(bruto.regrasCategoria).slice(0, 800).forEach(function (k) {
+        var v = bruto.regrasCategoria[k];
+        if (typeof k === 'string' && typeof v === 'string' && k.trim() && v.trim()) {
+          limpo.regrasCategoria[k.slice(0, 60)] = v.slice(0, 30);
+        }
+      });
     }
 
     if (bruto.categoriasExtras && typeof bruto.categoriasExtras === 'object') {
@@ -2832,6 +2859,7 @@
       reserva_conta: ouNulo(p.reservaConta),
       reserva_manual: p.reservaManual,
       tipos_registro: estado.tiposRegistro || [],
+      regras_categoria: estado.regrasCategoria || {},
       orcamento_geral: estado.orcamentos.geral,
       objetivos: p.objetivos || []
     };
@@ -2943,6 +2971,9 @@
       novo.perfil.reservaConta = perfil.reserva_conta || '';
       novo.perfil.reservaManual = perfil.reserva_manual || 0;
       novo.tiposRegistro = perfil.tipos_registro || [];
+      if (perfil.regras_categoria && typeof perfil.regras_categoria === 'object') {
+        novo.regrasCategoria = perfil.regras_categoria;
+      }
       novo.perfil.objetivos = perfil.objetivos || [];
       novo.orcamentos.geral = perfil.orcamento_geral || 0;
     }
@@ -10879,13 +10910,40 @@
       });
       return linhas.map(function (l) {
         var itens = l.itens.sort(function (a, b) { return a.x - b.x; });
-        var fora = '', ultimoFim = null;
-        itens.forEach(function (p) {
-          var larg = p.t.length * (p.tam || 8) * 0.45;
-          if (ultimoFim != null && p.x - ultimoFim > (p.tam || 8) * 0.28 && !/\s$/.test(fora)) fora += '  ';
-          fora += p.t;
-          ultimoFim = p.x + larg;
-        });
+        if (itens.length === 1) return itens[0].t.trim();
+
+        // Quanto anda um caractere nesta linha, medido nas próprias posições.
+        // Estimar por um fator fixo enfiava espaço no meio das palavras, porque
+        // letra larga (O, M, G) anda bem mais do que a média.
+        var passos = [];
+        for (var i = 1; i < itens.length; i++) {
+          var n = Math.max(1, itens[i - 1].t.length);
+          var d = itens[i].x - itens[i - 1].x;
+          if (d > 0) passos.push(d / n);
+        }
+        passos.sort(function (a, b) { return a - b; });
+        var unidade = passos.length ? passos[Math.floor(passos.length / 2)] : 0;
+
+        // Quando cada coluna é um pedaço só, todo passo já traz o vão da coluna
+        // embutido e a mediana estoura. O corpo da letra é o teto: nenhuma
+        // fonte anda mais do que isso por caractere, em média.
+        var tams = itens.map(function (p) { return p.tam || 8; }).sort(function (a, b) { return a - b; });
+        var teto = tams[Math.floor(tams.length / 2)] * 0.62;
+        if (!(unidade > 0) || unidade > teto) unidade = teto;
+        if (!(unidade > 0)) unidade = 4;
+
+        // Se o próprio PDF já escreve os espaços, só marco as colunas. Se ele
+        // não escreve nenhum, aí sim preciso adivinhar onde a palavra acaba.
+        var temEspaco = itens.some(function (p) { return /\s/.test(p.t); });
+        var limite = temEspaco ? 1.6 : 0.45;
+
+        var fora = itens[0].t;
+        for (var k = 1; k < itens.length; k++) {
+          var ant = itens[k - 1];
+          var sobra = (itens[k].x - ant.x) - ant.t.length * unidade;
+          if (sobra > unidade * limite && !/\s$/.test(fora)) fora += ' ';
+          fora += itens[k].t;
+        }
         return fora.replace(/\s+/g, ' ').trim();
       }).filter(function (s) { return s; });
     }
@@ -11692,7 +11750,131 @@
              pareceFatura: pareceFatura, textoDeBytes: textoDeBytes };
   })();
 
+  // ---------- Categorias: criar, renomear e excluir ----------
+
+  function categoriaDeFabrica(tipo, nome) { return CATEGORIAS[tipo].indexOf(nome) >= 0; }
+
+  // Abre o seletor de categoria já com o que a pessoa pode criar e apagar.
+  function escolherCategoria(tipo, atual, aoEscolher) {
+    abrirEscolha({
+      titulo: 'Categoria',
+      valor: atual,
+      opcoes: categoriasDe(tipo).map(function (c) {
+        return { valor: c, rotulo: c, icone: categoriaDeFabrica(tipo, c) ? null : 'lapis' };
+      }),
+      acao: { rotulo: '+ Criar categoria', aoTocar: function () { criarCategoria(tipo, aoEscolher); } }
+    }, function (v) {
+      if (v == null) { aoEscolher(null); return; }
+      // Tocar numa que você criou abre o que dá para fazer com ela.
+      if (!categoriaDeFabrica(tipo, v)) { mexerNaCategoria(tipo, v, atual, aoEscolher); return; }
+      aoEscolher(v);
+    });
+  }
+
+  function criarCategoria(tipo, aoEscolher) {
+    abrirFolhaTexto('Nova categoria', 'Nome da categoria', '', 'Ex.: Pet, Academia, Obra',
+      function (nome) {
+        var limpo = nome.trim().slice(0, 30);
+        if (!limpo) return;
+        if (categoriasDe(tipo).indexOf(limpo) >= 0) { avisar('Essa categoria já existe.'); aoEscolher(limpo); return; }
+        estado.categoriasExtras[tipo].push(limpo);
+        salvar();
+        avisar('Categoria ' + limpo + ' criada.');
+        aoEscolher(limpo);
+      },
+      function () { aoEscolher(null); });
+  }
+
+  function mexerNaCategoria(tipo, nome, atual, aoEscolher) {
+    abrirEscolha({
+      titulo: nome,
+      semMarca: true,
+      opcoes: [
+        { valor: 'usar', rotulo: 'Usar esta categoria' },
+        { valor: 'renomear', rotulo: 'Renomear' },
+        { valor: 'excluir', rotulo: 'Excluir a categoria' }
+      ]
+    }, function (v) {
+      if (v === 'usar') { aoEscolher(nome); return; }
+      if (v === 'renomear') { renomearCategoria(tipo, nome, aoEscolher); return; }
+      if (v === 'excluir') { excluirCategoria(tipo, nome, aoEscolher); return; }
+      escolherCategoria(tipo, atual, aoEscolher);
+    });
+  }
+
+  function renomearCategoria(tipo, nome, aoEscolher) {
+    abrirFolhaTexto('Renomear categoria', 'Nome da categoria', nome, '',
+      function (novo) {
+        var limpo = novo.trim().slice(0, 30);
+        if (!limpo || limpo === nome) { aoEscolher(nome); return; }
+        if (categoriasDe(tipo).indexOf(limpo) >= 0) { avisar('Já existe uma categoria com esse nome.'); aoEscolher(nome); return; }
+        var i = estado.categoriasExtras[tipo].indexOf(nome);
+        if (i >= 0) estado.categoriasExtras[tipo][i] = limpo;
+        // Os lançamentos que estavam nela vão junto.
+        estado.lancamentos.forEach(function (l) { if (l.tipo === tipo && l.categoria === nome) l.categoria = limpo; });
+        Object.keys(estado.regrasCategoria || {}).forEach(function (k) {
+          if (estado.regrasCategoria[k] === nome) estado.regrasCategoria[k] = limpo;
+        });
+        salvar();
+        desenhar();
+        aoEscolher(limpo);
+      },
+      function () { aoEscolher(nome); });
+  }
+
+  function excluirCategoria(tipo, nome, aoEscolher) {
+    var usados = estado.lancamentos.filter(function (l) {
+      return l.tipo === tipo && l.categoria === nome;
+    }).length;
+    perguntar({
+      titulo: 'Excluir a categoria ' + nome + '?',
+      texto: usados
+        ? 'Os ' + usados + ' lançamento(s) que estão nela passam para "Outros". A categoria some da lista.'
+        : 'Ela some da lista. Nenhum lançamento usa essa categoria.',
+      ok: 'Excluir', tom: 'perigo',
+      aoCancelar: function () { aoEscolher(nome); }
+    }, function () {
+      estado.categoriasExtras[tipo] = estado.categoriasExtras[tipo].filter(function (c) { return c !== nome; });
+      estado.lancamentos.forEach(function (l) {
+        if (l.tipo === tipo && l.categoria === nome) l.categoria = 'Outros';
+      });
+      Object.keys(estado.regrasCategoria || {}).forEach(function (k) {
+        if (estado.regrasCategoria[k] === nome) delete estado.regrasCategoria[k];
+      });
+      salvar();
+      desenhar();
+      avisar('Categoria excluída.');
+      aoEscolher('Outros');
+    });
+  }
+
   // ---------- Importar extrato do banco ----------
+
+  var PREFIXOS_ORIGEM = [
+    /^pix (enviado|recebido)( c6)? (para|de)\s+/,
+    /^transfer[êe]ncia (enviada|recebida)( pelo pix)?\s*[-–]?\s*/,
+    /^(ted|doc) (enviad[ao]|recebid[ao])( para| de)?\s*[-–]?\s*/,
+    /^(compra|pagamento|saque|d[ée]bito)( no| de| em)? ?(d[ée]bito|boleto|cart[ãa]o)?\s*[-–]\s*/,
+    /^pagamento de\s+/, /^compra em\s+/, /^recebimento de\s+/
+  ];
+
+  // Quem está do outro lado do lançamento. É por esse nome que a pessoa
+  // reconhece o gasto, e é nele que a regra de categoria se apoia.
+  function nomeDeOrigem(descricao) {
+    var s = String(descricao || '').trim();
+    var baixo = s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    for (var i = 0; i < PREFIXOS_ORIGEM.length; i++) {
+      var m = PREFIXOS_ORIGEM[i].exec(baixo);
+      if (m) { s = s.slice(m[0].length); break; }
+    }
+    return s.replace(/\s+/g, ' ').trim().toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').slice(0, 60);
+  }
+
+  function regraDeCategoria(descricao) {
+    var chave = nomeDeOrigem(descricao);
+    return chave && estado.regrasCategoria ? (estado.regrasCategoria[chave] || '') : '';
+  }
 
   var extratoLido = null;
 
@@ -12073,6 +12255,15 @@
       return;
     }
 
+    // O que você já ensinou em outra importação vale aqui de novo.
+    itens.forEach(function (it) {
+      var jaSabe = regraDeCategoria(it.descricao);
+      if (jaSabe && categoriasDe(it.tipo).indexOf(jaSabe) >= 0) {
+        it.categoria = jaSabe;
+        it.veioDeRegra = true;
+      }
+    });
+
     extratoLido = {
       itens: itens, arquivo: arquivo,
       fatura: !!lido.fatura,
@@ -12225,11 +12416,42 @@
       }
 
       // Um extrato de ano inteiro passa de mil linhas. Desenhar tudo de uma
-      // vez trava o celular, então mostro por partes; a conta é sempre do todo.
-      var mostrando = dados.mostrando || Math.min(itens.length, 250);
-      dados.mostrando = mostrando;
+      // vez trava o celular, então vai por páginas — e dá para ir e voltar.
+      var porPagina = 100;
+      var paginas = Math.max(1, Math.ceil(itens.length / porPagina));
+      var pagina = Math.min(Math.max(dados.pagina || 0, 0), paginas - 1);
+      dados.pagina = pagina;
+      var de = pagina * porPagina;
+      var ate = Math.min(de + porPagina, itens.length);
 
-      itens.slice(0, mostrando).forEach(function (it) {
+      function barraDePaginas() {
+        var barra = no('div', 'paginas');
+        var antes = botao('btn-mini', '‹ Anteriores', function () {
+          dados.pagina = pagina - 1;
+          montarFolhaExtrato();
+          rolarParaLista();
+        });
+        antes.disabled = pagina === 0;
+        var depois = botao('btn-mini', 'Próximos ›', function () {
+          dados.pagina = pagina + 1;
+          montarFolhaExtrato();
+          rolarParaLista();
+        });
+        depois.disabled = pagina >= paginas - 1;
+        juntar(barra, antes,
+          no('span', 'paginas-conta', (de + 1) + '–' + ate + ' de ' + itens.length),
+          depois);
+        return barra;
+      }
+
+      function rolarParaLista() {
+        var alvo = $('folha').querySelector('.lista-extrato');
+        if (alvo) alvo.scrollIntoView({ block: 'start' });
+      }
+
+      if (paginas > 1) lista.appendChild(barraDePaginas());
+
+      itens.slice(de, ate).forEach(function (it) {
         var linha = no('div', 'item-extrato' + (it.usar ? '' : ' apagado'));
 
         var marca = botao('caixinha' + (it.usar ? ' marcada' : ''), it.usar ? '✓' : '', function () {
@@ -12246,15 +12468,11 @@
         var sub = no('div', 'item-sub');
         sub.appendChild(no('span', null, dataBr(it.data)));
         var cat = botao('etiqueta-cat', it.categoria, function () {
-          abrirEscolha({
-            titulo: 'Categoria', valor: it.categoria,
-            opcoes: categoriasDe(it.tipo).map(function (c) { return { valor: c, rotulo: c }; })
-          }, function (v) {
-            if (!v) return;
+          escolherCategoria(it.tipo, it.categoria, function (v) {
+            if (!v || v === it.categoria) { montarFolhaExtrato(); return; }
             it.categoria = v;
             it.categoriaTrocada = true;
-            cat.textContent = v;
-            cat.style.color = corDeCategoria(v);
+            perguntarSeValeParaTodos(it, v);
           });
         });
         cat.style.color = corDeCategoria(it.categoria);
@@ -12269,19 +12487,52 @@
         lista.appendChild(linha);
       });
 
-      if (itens.length > mostrando) {
-        var faltam = itens.length - mostrando;
-        lista.appendChild(botao('btn btn-fantasma', 'Ver mais ' + Math.min(faltam, 250) + ' de ' + faltam, function () {
-          dados.mostrando = mostrando + 250;
-          montarFolhaExtrato();
-        }));
-      }
+      if (paginas > 1) lista.appendChild(barraDePaginas());
 
       forma.insertBefore(no('p', 'ajuda',
         'Confira as categorias antes de lançar: toque na etiqueta para trocar. O arquivo foi lido aqui no seu aparelho, nada dele sai para a internet.'), acoes);
 
       pintarResumo();
       folha.appendChild(forma);
+    });
+  }
+
+  // Trocou a categoria de um lançamento: os outros do mesmo lugar quase
+  // sempre são a mesma coisa. Mas isso é escolha da pessoa, então pergunto.
+  function perguntarSeValeParaTodos(item, categoria) {
+    var dados = extratoLido;
+    if (!dados) return;
+    var chave = nomeDeOrigem(item.descricao);
+    if (!chave) { montarFolhaExtrato(); return; }
+
+    var iguais = dados.itens.filter(function (o) {
+      return o !== item && o.tipo === item.tipo &&
+             nomeDeOrigem(o.descricao) === chave && o.categoria !== categoria;
+    });
+
+    if (!iguais.length) {
+      // Mesmo sozinho vale guardar: na próxima importação já vem certo.
+      if (!estado.regrasCategoria) estado.regrasCategoria = {};
+      estado.regrasCategoria[chave] = categoria;
+      salvar();
+      montarFolhaExtrato();
+      return;
+    }
+
+    perguntar({
+      titulo: 'Vale para todos?',
+      texto: 'Tem mais ' + iguais.length + ' lançamento(s) de "' + chave + '" nesta lista. ' +
+             'Quer deixar todos em ' + categoria + '?\n\n' +
+             'Marcando sim, eu também guardo isso para as próximas importações.',
+      ok: 'Sim, todos', cancelar: 'Só este',
+      aoCancelar: function () { montarFolhaExtrato(); }
+    }, function () {
+      iguais.forEach(function (o) { o.categoria = categoria; o.categoriaTrocada = true; });
+      if (!estado.regrasCategoria) estado.regrasCategoria = {};
+      estado.regrasCategoria[chave] = categoria;
+      salvar();
+      montarFolhaExtrato();
+      avisar(iguais.length + 1 + ' lançamentos em ' + categoria + '.');
     });
   }
 

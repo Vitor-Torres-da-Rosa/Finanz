@@ -5,3 +5,7 @@ alter table public.contas add column if not exists banco text not null default '
 -- Cartão de crédito: dia em que a fatura fecha e dia em que ela vence.
 alter table public.contas add column if not exists fechamento smallint not null default 0;
 alter table public.contas add column if not exists vencimento smallint not null default 0;
+
+-- O que a pessoa ensina na importação ("esse nome é Combustível") vale nas
+-- próximas: nome de origem -> categoria.
+alter table public.perfis add column if not exists regras_categoria jsonb not null default '{}'::jsonb;

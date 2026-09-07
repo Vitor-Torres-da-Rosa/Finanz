@@ -65,6 +65,7 @@ create table if not exists public.perfis (
   reserva_conta         text,
   reserva_manual        bigint      not null default 0  check (reserva_manual >= 0),
   tipos_registro        text[]      not null default '{}',
+  regras_categoria jsonb  not null default '{}'::jsonb,
   criado_em             timestamptz not null default now(),
   atualizado_em         timestamptz not null default now()
 );
