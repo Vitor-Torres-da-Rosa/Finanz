@@ -1410,13 +1410,22 @@
 (function () {
   'use strict';
 
-  var VERSAO = '3.9.5';
+  var VERSAO = '3.9.6';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '3.9.6',
+      data: '2026-09-07',
+      itens: [
+        'Sexta forma de ler o arquivo, por fluxo: é um caminho diferente por dentro do navegador e passa onde os outros param.',
+        'Quando falha, "Tentar outro arquivo" pede o navegador de pastas do Android em vez da lista "Recentes", que é onde o acesso ao arquivo costuma valer uma vez só.',
+        'O aviso explica o passo a passo: menu ☰ do seletor, Downloads, e aí o arquivo.'
+      ]
+    },
     {
       versao: '3.9.5',
       data: '2026-09-07',
@@ -11690,7 +11699,22 @@
   function nomeDoArquivo(arquivo) { return String((arquivo && arquivo.name) || '').toLowerCase(); }
 
   function abrirImportarExtrato() {
-    $('arquivoExtrato').click();
+    var campo = $('arquivoExtrato');
+    campo.removeAttribute('accept');
+    campo.click();
+  }
+
+  // Na segunda tentativa eu peço tipos de documento. Com isso o Android abre
+  // o navegador de pastas em vez da lista "Recentes", que é onde o acesso ao
+  // arquivo costuma valer uma vez só.
+  function escolherComoDocumento() {
+    var campo = $('arquivoExtrato');
+    campo.setAttribute('accept',
+      'application/pdf,text/csv,text/plain,' +
+      'application/vnd.ms-excel,' +
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,' +
+      '.pdf,.csv,.xlsx,.xls,.ofx,.qfx,.txt');
+    campo.click();
   }
 
   // Caminho que não depende de arquivo nenhum: a pessoa abre o extrato,
@@ -11788,6 +11812,34 @@
         erroCru(novo);
       };
 
+      // Caminho 5: por fluxo. Por dentro do navegador isso desce por um cano
+      // diferente do arrayBuffer, então às vezes passa onde os outros param.
+      function viaFluxo() {
+        if (typeof arquivo.stream !== 'function') { erro(ultimo || new Error('leitura falhou')); return; }
+        tentados.push('stream');
+        var partes = [];
+        var leitor;
+        try { leitor = arquivo.stream().getReader(); }
+        catch (e) { erro(ultimo || e); return; }
+
+        function puxar() {
+          leitor.read().then(function (r) {
+            if (r.done) {
+              var total = 0, i;
+              for (i = 0; i < partes.length; i++) total += partes[i].length;
+              if (!total) { erro(ultimo || new Error('vazio')); return; }
+              var fora = new Uint8Array(total), p = 0;
+              for (i = 0; i < partes.length; i++) { fora.set(partes[i], p); p += partes[i].length; }
+              ok(fora);
+              return;
+            }
+            partes.push(new Uint8Array(r.value));
+            puxar();
+          }, function (e) { erro(ultimo || e); });
+        }
+        puxar();
+      }
+
       // Caminho 4: em pedaços. Cada slice é outro blob, com leitura própria.
       function viaPedacos() {
         tentados.push('pedacos');
@@ -11801,19 +11853,19 @@
             for (i = 0; i < partes.length; i++) total += partes[i].length;
             var fora = new Uint8Array(total), p = 0;
             for (i = 0; i < partes.length; i++) { fora.set(partes[i], p); p += partes[i].length; }
-            if (fora.length) ok(fora); else erro(ultimo || new Error('vazio'));
+            if (fora.length) ok(fora); else viaFluxo();
             return;
           }
           var fatia = arquivo.slice(pos, Math.min(pos + pedaco, arquivo.size));
           pos += pedaco;
           var seguir = function (b) { partes.push(new Uint8Array(b)); proximo(); };
           if (typeof fatia.arrayBuffer === 'function') {
-            fatia.arrayBuffer().then(seguir, function (e) { erro(ultimo || e); });
+            fatia.arrayBuffer().then(seguir, function (e) { ultimo = ultimo || e; viaFluxo(); });
             return;
           }
           var l = new FileReader();
           l.onload = function () { seguir(l.result); };
-          l.onerror = function () { erro(ultimo || l.error || new Error('leitura falhou')); };
+          l.onerror = function () { ultimo = ultimo || l.error; viaFluxo(); };
           l.readAsArrayBuffer(fatia);
         }
         proximo();
@@ -11882,9 +11934,13 @@
       (e && e.tentados ? ' · tentei: ' + e.tentados : '') + ')';
 
     if (/NotFound/i.test(nome)) {
-      return 'O arquivo foi escolhido, mas o conteúdo dele sumiu antes de eu terminar de ler.\n\n' +
-        'Tente escolher de novo. Se insistir, mande o arquivo pelo Compartilhar do celular, ' +
-        'ou use "Colar o extrato".' + detalhe;
+      return 'O celular deixou escolher o arquivo, mas não entregou o conteúdo dele.\n\n' +
+        'Quase sempre é porque ele foi pego na lista "Recentes" do seletor, que dá um ' +
+        'acesso de uma vez só. Tente assim:\n' +
+        '1. Toque em "Tentar outro arquivo".\n' +
+        '2. No seletor, abra o menu ☰ e escolha "Downloads" ou o nome do celular.\n' +
+        '3. Ache o arquivo na pasta e toque nele.\n\n' +
+        'Se ainda assim não for, mande pelo Compartilhar do celular ou use "Colar o extrato".' + detalhe;
     }
     if (/NotReadable|NotAllowed|Security/i.test(nome)) {
       return 'O Android bloqueou a leitura desse arquivo. Baixe ele para a pasta Downloads ' +
@@ -11941,7 +11997,7 @@
         titulo: 'Não deu para abrir',
         texto: recadoDeLeitura(e, arquivo),
         ok: 'Colar o texto', cancelar: 'Tentar outro arquivo',
-        aoCancelar: function () { setTimeout(function () { $('arquivoExtrato').click(); }, 200); }
+        aoCancelar: function () { setTimeout(escolherComoDocumento, 200); }
       }, function () {
         setTimeout(abrirColarExtrato, 240);
       });
