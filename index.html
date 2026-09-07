@@ -1410,13 +1410,21 @@
 (function () {
   'use strict';
 
-  var VERSAO = '3.9.3';
+  var VERSAO = '3.9.4';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '3.9.4',
+      data: '2026-09-07',
+      itens: [
+        'Consertado de verdade o "não deu para abrir o arquivo": o erro era meu. O app limpava o campo de arquivo antes de terminar a leitura, e isso soltava o conteúdo no meio do caminho.',
+        'Agora o campo só é limpo depois que os dados estão na mão. Vale para importar extrato e para restaurar backup.'
+      ]
+    },
     {
       versao: '3.9.3',
       data: '2026-09-07',
@@ -11851,11 +11859,12 @@
       'a partir do gerenciador de arquivos.' + detalhe;
   }
 
-  function lerArquivoExtrato(arquivo) {
+  function lerArquivoExtrato(arquivo, soltar) {
     var nome = nomeDoArquivo(arquivo);
     avisar('Abrindo o arquivo...');
 
     bytesDoArquivo(arquivo).then(function (bytes) {
+      if (soltar) soltar();
       limparAviso();
       var comeco = Extrato.textoDeBytes(bytes.subarray(0, 2048));
 
@@ -11886,9 +11895,10 @@
       else lido = Extrato.lerCsv(texto, nome);
       mostrarExtrato(lido, arquivo, lido.itens.length ? '' : 'csv');
     }, function (e) {
+      if (soltar) soltar();
       limparAviso();
-      // Tentar de novo resolve boa parte das vezes: o Android costuma
-      // devolver a permissão do arquivo na segunda escolha.
+      // Tentar de novo resolve boa parte das vezes: o navegador costuma
+      // devolver o arquivo na segunda escolha.
       perguntar({
         titulo: 'Não deu para abrir',
         texto: recadoDeLeitura(e, arquivo),
@@ -12310,10 +12320,11 @@
     return tarefa;
   }
 
-  function restaurarBackup(arquivo) {
-    // Mesmo caminho teimoso do importar: três tentativas de leitura e um
+  function restaurarBackup(arquivo, soltar) {
+    // Mesmo caminho teimoso do importar: quatro tentativas de leitura e um
     // recado de verdade quando o aparelho não deixa abrir.
     bytesDoArquivo(arquivo).then(function (bytes) {
+      if (soltar) soltar();
       var bruto;
       try {
         // Alguns aparelhos entregam o arquivo com BOM ou com sobras de espaço.
@@ -12375,6 +12386,7 @@
         });
       });
     }, function (e) {
+      if (soltar) soltar();
       perguntar({
         titulo: 'Não deu para abrir',
         texto: recadoDeLeitura(e, arquivo),
@@ -12481,17 +12493,25 @@
   $('relFechar').addEventListener('click', fecharRelatorio);
   $('relImprimir').addEventListener('click', function () { window.print(); });
 
-  $('arquivoRestaurar').addEventListener('change', function (evento) {
-    var arquivo = evento.target.files && evento.target.files[0];
-    if (arquivo) restaurarBackup(arquivo);
-    evento.target.value = '';
-  });
+  // Enquanto o input segura o arquivo, o navegador mantém o conteúdo dele
+  // ao alcance. Limpar o campo antes de a leitura terminar solta esse
+  // conteúdo, e aí a leitura morre com NotFoundError mesmo tendo o nome e
+  // o tamanho certos. Por isso a limpeza só acontece no fim.
+  function comArquivoEscolhido(campo, usar) {
+    campo.addEventListener('change', function (evento) {
+      var arquivo = evento.target.files && evento.target.files[0];
+      if (!arquivo) return;
+      var soltou = false;
+      usar(arquivo, function () {
+        if (soltou) return;
+        soltou = true;
+        try { campo.value = ''; } catch (e) { /* nada a fazer */ }
+      });
+    });
+  }
 
-  $('arquivoExtrato').addEventListener('change', function (evento) {
-    var arquivo = evento.target.files && evento.target.files[0];
-    if (arquivo) lerArquivoExtrato(arquivo);
-    evento.target.value = '';
-  });
+  comArquivoEscolhido($('arquivoRestaurar'), restaurarBackup);
+  comArquivoEscolhido($('arquivoExtrato'), lerArquivoExtrato);
 
   document.addEventListener('keydown', function (evento) {
     if (evento.key !== 'Escape') return;
