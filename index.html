@@ -1421,7 +1421,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.2.0';
+  var VERSAO = '4.2.1';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
@@ -10098,6 +10098,10 @@
   // Leitor de extrato e de fatura. Abre PDF (inclusive com senha), planilha
   // xlsx, OFX e CSV, sem depender de nenhuma biblioteca de fora. Só lê.
   // =========================================================================
+  // =========================================================================
+  // Leitor de extrato e de fatura. Abre PDF (inclusive com senha), planilha
+  // xlsx, OFX e CSV, sem depender de nenhuma biblioteca de fora. Só lê.
+  // =========================================================================
   var Extrato = (function () {
   // ---------------------------------------------------------------------------
   // Leitor de PDF em JavaScript puro. Serve para tirar o texto de um extrato
@@ -11651,6 +11655,29 @@
     // Numa fatura, isso é crédito: abate, não soma.
     var CREDITO_NA_FATURA = /(pagamento (recebido|efetuado|de fatura)|estorno|credito de|devolucao|cashback|desconto|ajuste a credito|anuidade diferenciada|reembolso)/;
 
+    // Extrato que agrupa por dia (Inter, entre outros) põe a data numa linha
+    // sozinha e deixa os lançamentos do dia embaixo, sem data nenhuma.
+    function dataDeCabecalhoDeDia(linha) {
+      var s = String(linha || '').trim();
+      if (s.length > 90) return '';
+      var m = /^(\d{1,2})\s+de\s+([a-zA-ZçÇãÃéÉêÊúÚíÍóÓâÂ]+)\s+de\s+(\d{4})\b/.exec(s);
+      if (m && MESES[semAcento(m[2])]) return montarData(+m[1], MESES[semAcento(m[2])], +m[3]);
+      // "26/12/2024" sozinho, ou seguido de "Saldo do dia"
+      m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\b/.exec(s);
+      if (m && /^\s*(saldo|$)/i.test(s.slice(m[0].length).replace(/[·\-–—]/g, ' '))) {
+        return montarData(+m[1], +m[2], +m[3]);
+      }
+      return '';
+    }
+
+    // Uma coluna de saldo depois do valor engana quem pega o último número
+    // da linha. Quando o extrato tem essa coluna, o valor é o penúltimo.
+    function temColunaDeSaldo(texto) {
+      var s = semAcento(texto).slice(0, 30000);
+      return /saldo\s*(por\s*transacao|apos|posterior|resultante)/.test(s) ||
+             /\bvalor\b[^\n]{0,40}\bsaldo\b/.test(s);
+    }
+
     var RE_VALOR = /(-|\+)?\s*R?\$?\s*(-)?\s*(\d{1,3}(?:\.\d{3})+|\d+),(\d{2})(?!\d)/g;
 
     function acharValores(linha) {
@@ -11704,6 +11731,10 @@
     // boleto" é descrição inteira; "Pagamento  PGTO FAT CARTAO" é coluna.
     var LIGACAO = /^(de|do|da|dos|das|no|na|nos|nas|em|para|por|com|pelo|pela|ao|a|o)\b/;
 
+    // Particípio também continua a frase: "Pagamento efetuado CESUMAR" é uma
+    // descrição só, não a coluna "Pagamento" seguida de outra coisa.
+    var CONTINUACAO = /^\S*(ado|ada|ados|adas|ido|ida|idos|idas)\b/;
+
     function tirarColunaTipo(descricao) {
       var s = semAcento(descricao);
       for (var i = 0; i < TIPOS_COLUNA.length; i++) {
@@ -11711,22 +11742,34 @@
         if (!m) continue;
         var sobra = descricao.slice(m[0].length).replace(/^[\s:–—-]+/, '');
         if (sobra.length < 3) return { descricao: descricao, tipo: TIPOS_COLUNA[i][1] };
-        if (LIGACAO.test(semAcento(sobra))) return { descricao: descricao, tipo: TIPOS_COLUNA[i][1] };
+        var sobraSem = semAcento(sobra);
+        if (LIGACAO.test(sobraSem) || CONTINUACAO.test(sobraSem)) {
+          return { descricao: descricao, tipo: TIPOS_COLUNA[i][1] };
+        }
         return { descricao: sobra, tipo: TIPOS_COLUNA[i][1] };
       }
       return null;
+    }
+
+    // O Inter põe o texto do Pix entre aspas e com o identificador da chave na
+    // frente: Pix enviado: "Cp :31872495-FULANO". Quem lê só quer o nome.
+    function arrumarDescricao(texto) {
+      var s = String(texto || '').replace(/[\u201c\u201d\u201e]/g, '"').replace(/"/g, ' ');
+      s = s.replace(/(^|:)\s*cp\s*:?\s*\d+\s*-\s*/gi, '$1 ');
+      s = s.replace(/(^|:)\s*(?:\d{4,}[\s-]+){1,3}(?=\D)/g, '$1 ');
+      return s.replace(/\s{2,}/g, ' ').replace(/^[-\u2013\u2014:\s]+|[-\u2013\u2014:\s]+$/g, '');
     }
 
     var SAIDA = /(enviad|pagament|pagto|compra|debito|saida|saque|tarifa|taxa|iof|juros|anuidade|boleto|fatura|transferencia enviada|ted enviad|doc enviad|cobranca|desconto|aplicacao)/;
     var ENTRADA = /(recebid|entrada|credito|salario|rendiment|deposito|estorno|resgate|reembolso|devolucao|transferencia recebida|ted recebid|doc recebid|provento|cashback|premio)/;
 
     var CATEGORIA_POR_PALAVRA = [
-      [/(posto|combustivel|gasolina|etanol|ipiranga|shell|petrobras|br distribuidora|ale combust)/, 'Combustível'],
+      [/(\bposto|combustivel|gasolina|etanol|ipiranga|shell|petrobras|br distribuidora|ale combust)/, 'Combustível'],
       [/(uber|99app|99 tecnologia|cabify|taxi|onibus|metro|passagem|estacionamento|pedagio|sem parar|conectcar)/, 'Transporte'],
-      [/(supermercado|mercado(?! ?(livre|pago|libre))|atacad|carrefour|assai|big|zaffari|super|hortifrut|acougue|sacolao)/, 'Mercado'],
+      [/(supermercado|\bmercado(?! ?(livre|pago|libre))|atacad|carrefour|assai|\bbig\b|zaffari|\bsuper(?!ior|vis|intend)|hortifrut|acougue|sacolao)/, 'Mercado'],
       [/(restaurante|lanchonete|padaria|pizzar|burger|mc ?donalds|bk |subway|ifood|rappi|cafe|bar |churrasc)/, 'Alimentação'],
       [/(farmacia|drogaria|droga ?raia|panvel|pague menos|hospital|clinica|laboratorio|unimed|amil|dentist|medic|psicolog)/, 'Saúde'],
-      [/(escola|colegio|faculdade|universidade|unicesumar|uniasselvi|estacio|curso|udemy|alura|mensalidade escolar)/, 'Educação'],
+      [/(escola|colegio|faculdade|universidade|cesumar|uniasselvi|estacio|curso|udemy|alura|ensino superior|mensalidade escolar)/, 'Educação'],
       [/(netflix|spotify|amazon prime|disney|hbo|max |globoplay|youtube premium|deezer|assinatura|apple.com|google ?one|microsoft)/, 'Assinaturas'],
       [/(cinema|teatro|show|ingresso|steam|playstation|xbox|nintendo|viagem|hotel|pousada|airbnb|booking)/, 'Lazer'],
       [/(aluguel|condominio|imobiliaria|energia|luz |cemig|copel|celesc|rge |cpfl|enel|agua|sanepar|corsan|sabesp|gas |internet|vivo|claro|tim |oi fixo|net )/, 'Moradia'],
@@ -11780,22 +11823,33 @@
       var itens = [];
       var ano = null, mesRef = null;
       var hoje = new Date();
+      var dataDoDia = '';
+      var comSaldo = temColunaDeSaldo(linhas.join('\n'));
 
       linhas.forEach(function (linha) {
         var cab = anoDoCabecalho(linha);
         if (cab && cab.ano) { ano = cab.ano; mesRef = cab.mes; }
 
+        // Cabeçalho de dia: guarda a data e segue. Ele não é lançamento.
+        var doDia = dataDeCabecalhoDeDia(linha);
+        if (doDia) { dataDoDia = doDia; return; }
+
         if (devePular(linha)) return;
 
         var d = acharData(linha, ano || hoje.getFullYear());
-        if (!d || !d.data) return;
+        // Sem data na linha, vale a do cabeçalho do dia.
+        if (!d || !d.data) {
+          if (!dataDoDia) return;
+          d = { data: dataDoDia, fim: 0, ini: 0 };
+        }
 
         var valores = acharValores(linha.slice(d.fim));
         if (!valores.length) return;
 
-        // O valor do lançamento é o último número da linha (o primeiro pode ser
-        // a segunda data ou um número no meio da descrição).
+        // O valor do lançamento é o último número da linha. Quando existe a
+        // coluna de saldo, o último é o saldo e o valor é o de antes.
         var v = valores[valores.length - 1];
+        if (comSaldo && valores.length >= 2) v = valores[valores.length - 2];
         if (!v.valor) return;
 
         var resto = linha.slice(d.fim);
@@ -11819,7 +11873,7 @@
           else tipo = 'entrada';
         }
 
-        descricao = descricao.replace(/\s{2,}/g, ' ').replace(/^[-–—:\s]+|[-–—:\s]+$/g, '');
+        descricao = arrumarDescricao(descricao);
         if (!descricao) descricao = tipo === 'entrada' ? 'Entrada' : 'Saída';
 
         // A categoria sai do texto inteiro: a coluna de tipo também dá pista.
@@ -11970,6 +12024,7 @@
         var textoCheio = desc;
         var coluna = fatura ? null : tirarColunaTipo(desc);
         if (coluna) { desc = coluna.descricao; if (!negativo && !valor.marca) tipo = coluna.tipo; }
+        desc = arrumarDescricao(desc);
         if (!desc) desc = tipo === 'entrada' ? 'Entrada' : 'Saída';
 
         itens.push({ data: data, descricao: desc.slice(0, 80), valor: valor.valor, tipo: tipo,
@@ -12121,10 +12176,11 @@
 
   var PREFIXOS_ORIGEM = [
     /^pix (enviado|recebido)( c6)? (para|de)\s+/,
+    /^pix (enviado|recebido)( c6)?\s*[:\-–—]\s*/,
     /^transfer[êe]ncia (enviada|recebida)( pelo pix)?\s*[-–]?\s*/,
     /^(ted|doc) (enviad[ao]|recebid[ao])( para| de)?\s*[-–]?\s*/,
     /^(compra|pagamento|saque|d[ée]bito)( no| de| em)? ?(d[ée]bito|boleto|cart[ãa]o)?\s*[-–]\s*/,
-    /^pagamento de\s+/, /^compra em\s+/, /^recebimento de\s+/
+    /^pagamento (de|efetuado)\s+/, /^compra em\s+/, /^recebimento de\s+/
   ];
 
   // Quem está do outro lado do lançamento. É por esse nome que a pessoa
