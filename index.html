@@ -1415,13 +1415,21 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.0.1';
+  var VERSAO = '4.1.0';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '4.1.0',
+      data: '2026-09-07',
+      itens: [
+        'A rosca do Início agora alterna entre Despesas e Receitas: dá para ver de onde o dinheiro veio, não só para onde foi.',
+        'O relatório de fluxo de caixa passou a trazer as duas tabelas por categoria, receitas e despesas.'
+      ]
+    },
     {
       versao: '4.0.1',
       data: '2026-09-07',
@@ -3325,11 +3333,12 @@
     return { entradas: entradas, saidas: saidas, saldo: entradas - saidas };
   }
 
-  function gastosPorCategoria(ano, mes) {
+  function gastosPorCategoria(ano, mes, tipo) {
+    var lado = tipo === 'entrada' ? 'entrada' : 'saida';
     var mapa = {};
     var total = 0;
     lancamentosDoMes(ano, mes).forEach(function (l) {
-      if (l.tipo !== 'saida') return;
+      if (l.tipo !== lado) return;
       mapa[l.categoria] = (mapa[l.categoria] || 0) + l.valor;
       total += l.valor;
     });
@@ -4632,6 +4641,8 @@
   var periodo = { tipo: 'mes', de: '', ate: '' };
   var buscaTransacoes = '';
   var abaInvestimentos = 'alocacao';
+  // A rosca do Início mostra as saídas ou as entradas, à escolha.
+  var abaDistribuicao = 'saida';
   var abaInicio = 'geral';
 
   // No Empreendedor o botão redondo cadastra cliente; no resto, lançamento.
@@ -5222,17 +5233,32 @@
     cFluxo.appendChild(duas);
     tela.appendChild(cFluxo);
 
-    // Distribuição de gastos
-    var gastos = gastosNaFaixa(faixa);
+    // Distribuição, das saídas ou das entradas
+    var ehEntrada = abaDistribuicao === 'entrada';
+    var gastos = gastosNaFaixa(faixa, abaDistribuicao);
     var cGastos = cartao();
-    cGastos.appendChild(topoDeCartao('Distribuição de gastos', 'Relatório', function () { abrirRelatorio('fluxo'); }));
+    cGastos.appendChild(topoDeCartao(
+      ehEntrada ? 'Distribuição de receitas' : 'Distribuição de gastos',
+      'Relatório', function () { abrirRelatorio('fluxo'); }));
+
+    cGastos.appendChild(segmentos([
+      { valor: 'saida', rotulo: 'Despesas' },
+      { valor: 'entrada', rotulo: 'Receitas' }
+    ], abaDistribuicao, function (v) {
+      abaDistribuicao = v;
+      desenhar();
+    }));
+
     if (!gastos.total) {
-      cGastos.appendChild(estadoVazio('Sem gastos ' + faixa.rotulo, 'Os lançamentos de saída aparecem aqui divididos por categoria.'));
+      cGastos.appendChild(estadoVazio(
+        ehEntrada ? 'Sem receitas ' + faixa.rotulo : 'Sem gastos ' + faixa.rotulo,
+        ehEntrada ? 'Os lançamentos de entrada aparecem aqui divididos por categoria.'
+                  : 'Os lançamentos de saída aparecem aqui divididos por categoria.'));
     } else {
       var seg = comCores(gastos.lista.slice(0, 6));
       var outros = gastos.lista.slice(6).reduce(function (s, c) { return s + c.valor; }, 0);
       if (outros > 0) seg.push({ nome: 'Demais', valor: outros, cor: '#4B5A6B' });
-      cGastos.appendChild(rosca(seg, gastos.total, 'Gastos'));
+      cGastos.appendChild(rosca(seg, gastos.total, ehEntrada ? 'Receitas' : 'Gastos'));
       cGastos.appendChild(legenda(seg, gastos.total));
     }
     tela.appendChild(cGastos);
@@ -7260,11 +7286,12 @@
     return { entradas: entradas, saidas: saidas, saldo: entradas - saidas };
   }
 
-  function gastosNaFaixa(faixa) {
+  function gastosNaFaixa(faixa, tipo) {
+    var lado = tipo === 'entrada' ? 'entrada' : 'saida';
     var mapa = {};
     var total = 0;
     lancamentosNaFaixa(faixa).forEach(function (l) {
-      if (l.tipo !== 'saida') return;
+      if (l.tipo !== lado) return;
       mapa[l.categoria] = (mapa[l.categoria] || 0) + l.valor;
       total += l.valor;
     });
@@ -9641,8 +9668,20 @@
         ));
       }
 
+      // Os dois lados: onde o dinheiro entrou e onde ele saiu.
+      var receitas = gastosPorCategoria(mesAtivo.ano, mesAtivo.mes, 'entrada');
+      if (receitas.lista.length) {
+        alvo.appendChild(no('h2', null, 'Receitas por categoria'));
+        alvo.appendChild(tabela(
+          [{ rotulo: 'Categoria' }, { rotulo: 'Valor', numerica: true }, { rotulo: '%', numerica: true }],
+          receitas.lista.map(function (g) {
+            return [celula(g.nome), celula(emReais(g.valor)), celula(Math.round(pct(g.valor, receitas.total)) + '%')];
+          })
+        ));
+      }
+
       if (gastos.lista.length) {
-        alvo.appendChild(no('h2', null, 'Totais por categoria'));
+        alvo.appendChild(no('h2', null, 'Despesas por categoria'));
         alvo.appendChild(tabela(
           [{ rotulo: 'Categoria' }, { rotulo: 'Valor', numerica: true }, { rotulo: '%', numerica: true }],
           gastos.lista.map(function (g) {
