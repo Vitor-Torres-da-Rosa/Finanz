@@ -13,3 +13,11 @@ alter table public.perfis add column if not exists regras_categoria jsonb not nu
 -- Pares de lançamentos que a pessoa disse que NÃO são transferência entre
 -- contas, para o app não perguntar de novo.
 alter table public.perfis add column if not exists pares_ignorados jsonb not null default '[]'::jsonb;
+
+-- De qual importação de extrato o lançamento veio, para dar para tirar a
+-- leva inteira quando a leitura do arquivo sai errada.
+alter table public.lancamentos add column if not exists importacao_id text not null default '';
+
+-- Registro das importações: arquivo, banco, quantos lançamentos e o saldo
+-- que o extrato mostrava no fim.
+alter table public.perfis add column if not exists importacoes jsonb not null default '[]'::jsonb;

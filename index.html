@@ -472,6 +472,45 @@
   }
   .btn-ouro { background: var(--dourado); color: #1A1408; box-shadow: 0 6px 20px rgba(233,180,76,.22); }
   .btn-fantasma { background: var(--cartao); border: 1px solid var(--borda); color: var(--texto); }
+
+  /* Calendário de escolher data: ano em cima, mês e dias embaixo. */
+  .cal { border: 1px solid var(--borda); border-radius: 14px; padding: 10px 10px 12px;
+         background: var(--cartao); user-select: none; touch-action: pan-y; }
+  .cal-fita { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .cal-fita + .cal-fita { margin-top: 4px; }
+  .cal-seta { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--borda);
+              background: transparent; color: var(--ouro); font-size: 17px; line-height: 1;
+              display: flex; align-items: center; justify-content: center; flex: none; }
+  .cal-ano { font-size: 19px; font-weight: 600; letter-spacing: .06em; color: var(--texto); }
+  .cal-mes { font-size: 15px; color: var(--suave); text-transform: capitalize; }
+  .cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; margin-top: 8px; }
+  .cal-cab { text-align: center; font-size: 11px; color: var(--fraco); padding: 4px 0; }
+  .cal-dia { aspect-ratio: 1 / 1; border: 0; background: transparent; color: var(--texto);
+             border-radius: 10px; font-size: 14px; display: flex; align-items: center;
+             justify-content: center; }
+  .cal-dia.fora { color: var(--fraco); opacity: .45; }
+  .cal-dia.hoje { border: 1px solid var(--borda); }
+  .cal-dia.escolhido { background: var(--ouro); color: #1B1608; font-weight: 700; }
+  .cal-rotulo { display: flex; justify-content: space-between; align-items: baseline;
+                margin: 0 2px 6px; }
+  .cal-rotulo .num { color: var(--ouro); font-size: 13px; }
+
+  /* Conferência da conta: números em grade e o mês a mês em tabela. */
+  .grade-conf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .conf-item { border: 1px solid var(--borda); border-radius: 12px; padding: 9px 11px; }
+  .conf-rotulo { font-size: 11px; color: var(--fraco); text-transform: uppercase;
+                 letter-spacing: .08em; }
+  .conf-valor { font-size: 14px; color: var(--texto); margin-top: 3px; }
+  .tabela-conf { margin-top: 10px; }
+  .conf-linha { display: grid; grid-template-columns: 62px 1fr 1fr 1fr; gap: 6px;
+                padding: 7px 2px; border-bottom: 1px solid var(--borda); font-size: 12.5px; }
+  .conf-linha span:not(:first-child) { text-align: right; }
+  .conf-linha:last-child { border-bottom: 0; }
+  .conf-cab { color: var(--fraco); font-size: 11px; text-transform: uppercase;
+              letter-spacing: .06em; }
+  .btn.btn-vermelho { background: transparent; border: 1px solid rgba(224,69,63,.55);
+                      color: #FF9A94; }
+  .btn.btn-vermelho:active { background: rgba(224,69,63,.14); }
   .btn-perigo { background: transparent; color: var(--vermelho); font-size: 14.5px; padding: 12px; }
   .btn-perigo:active { background: rgba(248,113,113,.1); }
   .btn:disabled { opacity: .45; }
@@ -1421,7 +1460,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.2.2';
+  var VERSAO = '4.3.0';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
@@ -1911,6 +1950,9 @@
       // Pares que a pessoa disse que não são transferência entre contas.
       paresIgnorados: [],
       tiposRegistro: [],
+      // Cada importação de extrato fica registrada: dá para conferir e
+      // desfazer inteira se a leitura saiu errada.
+      importacoes: [],
       clientes: [],
       servicos: [],
       pagamentos: [],
@@ -2125,6 +2167,23 @@
       });
     }
 
+    if (Array.isArray(bruto.importacoes)) {
+      limpo.importacoes = bruto.importacoes.filter(function (i) {
+        return i && typeof i === 'object' && typeof i.id === 'string';
+      }).map(function (i) {
+        return {
+          id: i.id,
+          contaId: texto(i.contaId),
+          banco: texto(i.banco).slice(0, 40),
+          arquivo: texto(i.arquivo).slice(0, 80),
+          quando: inteiro(i.quando) || Date.now(),
+          quantos: Math.max(inteiro(i.quantos), 0),
+          saldoExtrato: i.saldoExtrato == null ? null : inteiro(i.saldoExtrato),
+          de: soData(i.de), ate: soData(i.ate)
+        };
+      }).slice(-60);
+    }
+
     if (Array.isArray(bruto.clientes)) {
       limpo.clientes = bruto.clientes.filter(function (c) {
         return c && typeof c === 'object' && typeof c.id === 'string' && texto(c.nome);
@@ -2235,6 +2294,7 @@
           tipo: l.tipo,
           valor: inteiro(l.valor),
           descricao: semRepeticao(texto(l.descricao)).slice(0, 80),
+          importacaoId: texto(l.importacaoId),
           categoria: texto(l.categoria) || 'Outros',
           data: soData(l.data),
           contaId: texto(l.contaId),
@@ -2843,7 +2903,7 @@
       lancamentos: estado.lancamentos.map(function (l) {
         return {
           id: l.id, user_id: uid, tipo: l.tipo, valor: l.valor, descricao: l.descricao,
-          categoria: l.categoria, data: l.data,
+          categoria: l.categoria, data: l.data, importacao_id: l.importacaoId || '',
           conta_id: ouNulo(l.contaId), conta_destino_id: ouNulo(l.contaDestinoId)
         };
       }),
@@ -2911,6 +2971,7 @@
       tipos_registro: estado.tiposRegistro || [],
       regras_categoria: estado.regrasCategoria || {},
       pares_ignorados: estado.paresIgnorados || [],
+      importacoes: estado.importacoes || [],
       orcamento_geral: estado.orcamentos.geral,
       objetivos: p.objetivos || []
     };
@@ -3026,6 +3087,7 @@
         novo.regrasCategoria = perfil.regras_categoria;
       }
       if (Array.isArray(perfil.pares_ignorados)) novo.paresIgnorados = perfil.pares_ignorados;
+      if (Array.isArray(perfil.importacoes)) novo.importacoes = perfil.importacoes;
       novo.perfil.objetivos = perfil.objetivos || [];
       novo.orcamentos.geral = perfil.orcamento_geral || 0;
     }
@@ -3041,6 +3103,7 @@
         id: l.id, tipo: l.tipo, valor: l.valor, descricao: l.descricao || '',
         categoria: l.categoria || 'Outros', data: l.data,
         contaId: l.conta_id || '', contaDestinoId: l.conta_destino_id || '',
+        importacaoId: l.importacao_id || '',
         criadoEm: Date.parse(l.criado_em) || Date.now()
       };
     });
@@ -7553,12 +7616,14 @@
       var forma = no('div');
       forma.appendChild(no('p', 'linha-sub', 'Escolha as duas pontas do período que quer ver.'));
 
-      var campoDe = entradaData(periodo.de || f.de);
-      forma.appendChild(campo('Começa em', campoDe));
-      var campoAte = entradaData(periodo.ate || f.ate);
-      forma.appendChild(campo('Termina em', campoAte));
+      var campoDe = calendarioData(periodo.de || f.de, 'Começa em', function () { medir(); });
+      forma.appendChild(campoDe);
+      var campoAte = calendarioData(periodo.ate || f.ate, 'Termina em', function () { medir(); });
+      campoAte.style.marginTop = '14px';
+      forma.appendChild(campoAte);
 
       var nota = no('div', 'linha-nota');
+      nota.style.marginTop = '10px';
       forma.appendChild(nota);
       function medir() {
         if (!ehData(campoDe.value) || !ehData(campoAte.value)) { nota.textContent = ''; return; }
@@ -7569,8 +7634,6 @@
         }).length;
         nota.textContent = dias + ' dia(s), com ' + quantos + ' lançamento(s).';
       }
-      campoDe.addEventListener('change', medir);
-      campoAte.addEventListener('change', medir);
       medir();
 
       var acoes = no('div', 'acoes');
@@ -7757,6 +7820,307 @@
     return b;
   }
 
+  // Duas transações iguais no mesmo dia costumam ser importação repetida.
+  // Não é prova, então eu só aponto: quem decide é quem viu o extrato.
+  function repetidosDaConta(id) {
+    var mapa = {};
+    lancamentosDaConta(id).forEach(function (l) {
+      var k = l.data + '|' + l.valor + '|' + l.tipo + '|' + (l.descricao || '');
+      (mapa[k] = mapa[k] || []).push(l);
+    });
+    var grupos = [];
+    Object.keys(mapa).forEach(function (k) { if (mapa[k].length > 1) grupos.push(mapa[k]); });
+    grupos.sort(function (a, b) { return a[0].data < b[0].data ? 1 : -1; });
+    return grupos;
+  }
+
+  function resumoDaConta(id) {
+    var r = { entradas: 0, saidas: 0, entrou: 0, saiu: 0, quantos: 0,
+              transferencias: 0, futuros: 0, primeira: '', ultima: '' };
+    var hoje = hojeTexto();
+    lancamentosDaConta(id).forEach(function (l) {
+      r.quantos++;
+      if (l.data > hoje) r.futuros++;
+      if (!r.ultima || l.data > r.ultima) r.ultima = l.data;
+      if (!r.primeira || l.data < r.primeira) r.primeira = l.data;
+      if (l.tipo === 'transferencia') { r.transferencias++; }
+      var e = efeitoNaConta(l, id);
+      if (e > 0) { r.entradas++; r.entrou += e; }
+      else if (e < 0) { r.saidas++; r.saiu += -e; }
+    });
+    return r;
+  }
+
+  // Saldo mês a mês. É por aqui que se acha onde a conta descolou do banco:
+  // basta comparar cada linha com o extrato daquele mês.
+  function saldoPorMes(id) {
+    var conta = achar(estado.contas, id);
+    var linhas = [];
+    var porMes = {};
+    lancamentosDaConta(id).forEach(function (l) {
+      var k = l.data.slice(0, 7);
+      if (!porMes[k]) porMes[k] = { entrou: 0, saiu: 0, quantos: 0 };
+      var e = efeitoNaConta(l, id);
+      porMes[k].quantos++;
+      if (e > 0) porMes[k].entrou += e; else porMes[k].saiu += -e;
+    });
+    var chaves = Object.keys(porMes).sort();
+    var corrente = conta ? conta.saldoInicial : 0;
+    chaves.forEach(function (k) {
+      var m = porMes[k];
+      corrente += m.entrou - m.saiu;
+      linhas.push({ mes: k, entrou: m.entrou, saiu: m.saiu, quantos: m.quantos, saldo: corrente });
+    });
+    linhas.reverse();
+    return linhas;
+  }
+
+  function nomeDoMesChave(k) {
+    var p = k.split('-');
+    return MESES[+p[1] - 1].slice(0, 3) + '/' + p[0].slice(2);
+  }
+
+  // Tirar uma importação inteira: os lançamentos daquela leva somem, e o
+  // registro dela também.
+  function desfazerImportacao(impId, aoTerminar) {
+    var imp = null;
+    (estado.importacoes || []).forEach(function (i) { if (i.id === impId) imp = i; });
+    if (!imp) return;
+    perguntar({
+      titulo: 'Tirar esta importação?',
+      texto: 'Isso apaga os ' + imp.quantos + ' lançamento(s) que entraram nessa leva' +
+             (imp.arquivo ? ' (' + imp.arquivo + ')' : '') + '. O que você lançou à mão não é tocado.',
+      ok: 'Tirar tudo', tom: 'perigo'
+    }, function () {
+      var tirados = 0;
+      estado.lancamentos = estado.lancamentos.filter(function (l) {
+        if (l.importacaoId !== impId) return true;
+        marcarExcluido('lancamentos', l.id);
+        tirados++;
+        return false;
+      });
+      estado.importacoes = (estado.importacoes || []).filter(function (i) { return i.id !== impId; });
+      salvar();
+      avisar(tirados + ' lançamento(s) removidos.');
+      if (aoTerminar) aoTerminar();
+    });
+  }
+
+  function abrirFolhaConferencia(id) {
+    var conta = achar(estado.contas, id);
+    if (!conta) return;
+
+    abrirFolha('Conferir ' + conta.nome, function (folha) {
+      var forma = no('div');
+      var saldo = saldoConta(id, null);
+      var r = resumoDaConta(id);
+
+      forma.appendChild(no('p', 'linha-sub',
+        'Compare o que está aqui com o extrato do banco. O saldo do app é o saldo inicial ' +
+        'da conta mais tudo o que entrou, menos tudo o que saiu.'));
+
+      // ---- bate com o banco? ----
+      var conf = cartao();
+      conf.appendChild(no('div', 'rotulo', 'Saldo pelo app'));
+      conf.appendChild(no('div', 'valorao num' + (saldo < 0 ? ' vermelho' : ''), emReais(saldo)));
+      conf.appendChild(no('div', 'linha-nota',
+        'Saldo inicial ' + emReais(conta.saldoInicial) + ' + entradas ' + emReais(r.entrou) +
+        ' − saídas ' + emReais(r.saiu)));
+
+      var campoBanco = entradaValor(saldo, false);
+      conf.appendChild(campo('Saldo que o banco mostra', campoBanco));
+
+      var diferenca = no('div', 'linha-nota');
+      diferenca.style.marginTop = '-4px';
+      conf.appendChild(diferenca);
+
+      var ajustar = botao('btn btn-fantasma', 'Acertar o saldo inicial', function () {
+        var alvo = digitosParaCentavos(campoBanco.value);
+        var falta = alvo - saldo;
+        if (!falta) { avisar('Já está batendo.'); return; }
+        perguntar({
+          titulo: 'Acertar o saldo inicial?',
+          texto: 'Para o app fechar em ' + emReais(alvo) + ', o saldo inicial de "' + conta.nome +
+                 '" passa de ' + emReais(conta.saldoInicial) + ' para ' + emReais(conta.saldoInicial + falta) +
+                 '.\n\nIsso serve quando o extrato que você importou não pega desde o começo da conta. ' +
+                 'Se o que está errado são os lançamentos, é melhor tirar a importação lá embaixo.',
+          ok: 'Acertar'
+        }, function () {
+          conta.saldoInicial += falta;
+          salvar();
+          fecharFolha();
+          setTimeout(function () { abrirFolhaConferencia(id); }, 240);
+        });
+      });
+      ajustar.style.marginTop = '10px';
+      conf.appendChild(ajustar);
+      forma.appendChild(conf);
+
+      function medirDiferenca() {
+        var alvo = digitosParaCentavos(campoBanco.value);
+        var falta = alvo - saldo;
+        if (!falta) {
+          diferenca.textContent = 'Está batendo com o banco.';
+          diferenca.className = 'linha-nota verde';
+          ajustar.disabled = true;
+          return;
+        }
+        diferenca.textContent = 'Faltam ' + emReais(Math.abs(falta)) +
+          (falta > 0 ? ' para o app chegar no saldo do banco.' : ' a mais no app do que no banco.');
+        diferenca.className = 'linha-nota vermelho';
+        ajustar.disabled = false;
+      }
+      campoBanco.addEventListener('input', medirDiferenca);
+      campoBanco.addEventListener('change', medirDiferenca);
+      medirDiferenca();
+
+      // ---- o que tem dentro ----
+      var num = cartao('liso');
+      num.appendChild(no('div', 'rotulo', 'O que está lançado'));
+      var grade = no('div', 'grade-conf');
+      [['Lançamentos', String(r.quantos)],
+       ['Entradas', r.entradas + ' · ' + emReais(r.entrou)],
+       ['Saídas', r.saidas + ' · ' + emReais(r.saiu)],
+       ['Transferências', String(r.transferencias)],
+       ['Primeiro', r.primeira ? dataBr(r.primeira) : '—'],
+       ['Último', r.ultima ? dataBr(r.ultima) : '—']].forEach(function (par) {
+        var b = no('div', 'conf-item');
+        b.appendChild(no('div', 'conf-rotulo', par[0]));
+        b.appendChild(no('div', 'conf-valor', par[1]));
+        grade.appendChild(b);
+      });
+      num.appendChild(grade);
+      if (r.futuros) {
+        num.appendChild(no('div', 'linha-nota vermelho',
+          r.futuros + ' lançamento(s) com data no futuro. Isso costuma ser ano lido errado no extrato.'));
+      }
+      forma.appendChild(num);
+
+      // ---- mês a mês ----
+      var meses = saldoPorMes(id);
+      if (meses.length) {
+        var mm = cartao('liso');
+        mm.appendChild(no('div', 'rotulo', 'Mês a mês'));
+        mm.appendChild(no('div', 'linha-nota',
+          'O saldo de cada linha é como a conta fechou naquele mês. Compare com o extrato ' +
+          'do banco para achar onde as contas se separam.'));
+        var tab = no('div', 'tabela-conf');
+        var cab = no('div', 'conf-linha conf-cab');
+        ['Mês', 'Entrou', 'Saiu', 'Saldo'].forEach(function (t) { cab.appendChild(no('span', null, t)); });
+        tab.appendChild(cab);
+        meses.slice(0, 24).forEach(function (m) {
+          var l = no('div', 'conf-linha');
+          l.appendChild(no('span', null, nomeDoMesChave(m.mes)));
+          l.appendChild(no('span', 'verde', emReais(m.entrou)));
+          l.appendChild(no('span', 'vermelho', emReais(m.saiu)));
+          l.appendChild(no('span', 'num' + (m.saldo < 0 ? ' vermelho' : ''), emReais(m.saldo)));
+          tab.appendChild(l);
+        });
+        mm.appendChild(tab);
+        if (meses.length > 24) {
+          mm.appendChild(no('div', 'linha-nota', 'Mostrando os 24 meses mais recentes de ' + meses.length + '.'));
+        }
+        forma.appendChild(mm);
+      }
+
+      // ---- possíveis repetidos ----
+      var grupos = repetidosDaConta(id);
+      if (grupos.length) {
+        var rep = cartao('liso');
+        rep.appendChild(no('div', 'rotulo', 'Possíveis repetidos'));
+        rep.appendChild(no('div', 'linha-nota',
+          grupos.length + ' grupo(s) com data, valor e descrição iguais. Pode ser importação ' +
+          'repetida — ou pode ser real, como duas compras iguais no mesmo dia. Toque para ver.'));
+        grupos.slice(0, 12).forEach(function (g) {
+          var l = botao('linha', null, function () { abrirFolhaLancamento(g[0].id); });
+          juntar(l,
+            selo('#F87171', String(g.length)),
+            juntar(no('div', 'linha-texto'),
+              no('div', 'linha-titulo', g[0].descricao || g[0].categoria),
+              no('div', 'linha-sub', dataBr(g[0].data) + ' · ' + g.length + ' vezes')),
+            no('div', 'linha-valor num', emReais(g[0].valor)));
+          rep.appendChild(l);
+        });
+        forma.appendChild(rep);
+      }
+
+      // ---- importações desta conta ----
+      var minhas = (estado.importacoes || []).filter(function (i) { return i.contaId === id; })
+        .sort(function (a, b) { return b.quando - a.quando; });
+      var imp = cartao('liso');
+      imp.appendChild(no('div', 'rotulo', 'Extratos importados'));
+      if (!minhas.length) {
+        imp.appendChild(no('div', 'linha-nota',
+          'Nenhuma importação registrada nesta conta. Extratos importados antes desta versão ' +
+          'não aparecem aqui, mas os lançamentos deles continuam na lista.'));
+      } else {
+        imp.appendChild(no('div', 'linha-nota',
+          'Se uma leitura saiu errada, dá para tirar a leva inteira sem mexer no resto.'));
+        minhas.forEach(function (i) {
+          var linha = no('div', 'linha');
+          var sub = i.quantos + ' lançamento(s)' +
+            (i.de ? ' · ' + dataBr(i.de) + ' a ' + dataBr(i.ate) : '');
+          juntar(linha,
+            juntar(no('div', 'linha-texto'),
+              no('div', 'linha-titulo', i.arquivo || i.banco || 'Extrato'),
+              no('div', 'linha-sub', sub)),
+            botao('btn-mini', 'Tirar', function () {
+              desfazerImportacao(i.id, function () {
+                fecharFolha();
+                setTimeout(function () { abrirFolhaConferencia(id); }, 240);
+              });
+            }));
+          imp.appendChild(linha);
+          if (i.saldoExtrato != null) {
+            imp.appendChild(no('div', 'linha-nota',
+              'O extrato terminava com saldo de ' + emReais(i.saldoExtrato) + '.'));
+          }
+        });
+      }
+      forma.appendChild(imp);
+
+      // ---- recomeçar do zero ----
+      // Extrato importado errado antes de existir o registro de importações
+      // só sai assim. É perigoso, então fica no fim e pergunta duas vezes.
+      if (r.quantos) {
+        var zerar = cartao('liso');
+        zerar.appendChild(no('div', 'rotulo', 'Recomeçar esta conta'));
+        zerar.appendChild(no('div', 'linha-nota',
+          'Apaga os ' + r.quantos + ' lançamento(s) desta conta e devolve o saldo inicial a zero. ' +
+          'Serve quando um extrato entrou todo errado e você quer importar de novo do começo. ' +
+          'As outras contas não são tocadas.'));
+        var bZerar = botao('btn btn-vermelho', 'Apagar tudo desta conta', function () {
+          perguntar({
+            titulo: 'Apagar tudo desta conta?',
+            texto: 'Vão embora ' + r.quantos + ' lançamento(s) de "' + conta.nome + '", ' +
+                   'incluindo transferências que envolvam ela. Isso não tem volta — se quiser ' +
+                   'guardar antes, faça um backup em Mais.',
+            ok: 'Apagar tudo', tom: 'perigo'
+          }, function () {
+            var idos = 0;
+            estado.lancamentos = estado.lancamentos.filter(function (l) {
+              if (l.contaId !== id && l.contaDestinoId !== id) return true;
+              marcarExcluido('lancamentos', l.id);
+              idos++;
+              return false;
+            });
+            estado.importacoes = (estado.importacoes || []).filter(function (i) { return i.contaId !== id; });
+            conta.saldoInicial = 0;
+            salvar();
+            avisar(idos + ' lançamento(s) apagados.');
+            fecharFolha();
+            setTimeout(function () { abrirFolhaConferencia(id); }, 240);
+          });
+        });
+        bZerar.style.marginTop = '10px';
+        zerar.appendChild(bZerar);
+        forma.appendChild(zerar);
+      }
+
+      folha.appendChild(forma);
+    });
+  }
+
   function abrirExtratoConta(id) {
     var conta = achar(estado.contas, id);
     if (!conta) return;
@@ -7769,11 +8133,18 @@
       topo.appendChild(no('div', 'valorao num' + (saldo < 0 ? ' vermelho' : ''), emReais(saldo)));
       topo.appendChild(no('div', 'linha-nota', conta.tipo + ' · saldo inicial de ' + emReais(conta.saldoInicial)));
 
+      var conferir = botao('btn btn-ouro', 'Conferir esta conta', function () {
+        fecharFolha();
+        setTimeout(function () { abrirFolhaConferencia(id); }, 240);
+      });
+      conferir.style.marginTop = '14px';
+      topo.appendChild(conferir);
+
       var editar = botao('btn btn-fantasma', 'Editar esta conta', function () {
         fecharFolha();
         setTimeout(function () { abrirFolhaConta(id); }, 240);
       });
-      editar.style.marginTop = '14px';
+      editar.style.marginTop = '8px';
       topo.appendChild(editar);
       folha.appendChild(topo);
 
@@ -8571,6 +8942,120 @@
     i.id = proximoId();
     i.value = valor || hojeTexto();
     return i;
+  }
+
+  // Calendário de verdade no lugar do input de data: o ano rola de lado em
+  // cima, os meses rolam de lado embaixo, e o dia é um toque. Expõe .value
+  // como o input antigo, então quem usava continua usando igual.
+  var DIAS_CURTOS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+  function calendarioData(valor, rotulo, aoMudar) {
+    var caixa = no('div');
+    var escolhido = ehData(valor) ? valor : hojeTexto();
+    var p = partes(escolhido);
+    var anoVisto = p.ano, mesVisto = p.mes;
+
+    var cabecalho = no('div', 'cal-rotulo');
+    cabecalho.appendChild(no('span', 'rotulo', rotulo));
+    var lido = no('span', 'num');
+    cabecalho.appendChild(lido);
+    caixa.appendChild(cabecalho);
+
+    var cal = no('div', 'cal');
+    caixa.appendChild(cal);
+
+    var fitaAno = no('div', 'cal-fita');
+    var textoAno = no('div', 'cal-ano');
+    fitaAno.appendChild(botao('cal-seta', '‹', function () { mudarAno(-1); }));
+    fitaAno.appendChild(textoAno);
+    fitaAno.appendChild(botao('cal-seta', '›', function () { mudarAno(1); }));
+    cal.appendChild(fitaAno);
+
+    var fitaMes = no('div', 'cal-fita');
+    var textoMes = no('div', 'cal-mes');
+    fitaMes.appendChild(botao('cal-seta', '‹', function () { mudarMes(-1); }));
+    fitaMes.appendChild(textoMes);
+    fitaMes.appendChild(botao('cal-seta', '›', function () { mudarMes(1); }));
+    cal.appendChild(fitaMes);
+
+    var grade = no('div', 'cal-grade');
+    cal.appendChild(grade);
+
+    function mudarAno(n) { anoVisto += n; desenharCal(); }
+    function mudarMes(n) {
+      mesVisto += n;
+      while (mesVisto > 11) { mesVisto -= 12; anoVisto++; }
+      while (mesVisto < 0) { mesVisto += 12; anoVisto--; }
+      desenharCal();
+    }
+
+    // Arrastar de lado: no ano muda o ano, no resto muda o mês.
+    function arrastar(alvo, aoLado) {
+      var x0 = null, y0 = null;
+      alvo.addEventListener('touchstart', function (e) {
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+      }, { passive: true });
+      alvo.addEventListener('touchend', function (e) {
+        if (x0 == null) return;
+        var t = e.changedTouches[0];
+        var dx = t.clientX - x0, dy = t.clientY - y0;
+        x0 = null;
+        if (Math.abs(dx) > 44 && Math.abs(dx) > Math.abs(dy) * 1.5) aoLado(dx < 0 ? 1 : -1);
+      }, { passive: true });
+    }
+    arrastar(fitaAno, mudarAno);
+    arrastar(grade, mudarMes);
+    arrastar(fitaMes, mudarMes);
+
+    function desenharCal() {
+      textoAno.textContent = String(anoVisto);
+      textoMes.textContent = MESES[mesVisto];
+      lido.textContent = dataBr(escolhido);
+      grade.textContent = '';
+      DIAS_CURTOS.forEach(function (d) { grade.appendChild(no('div', 'cal-cab', d)); });
+
+      var primeiro = new Date(anoVisto, mesVisto, 1);
+      var vazios = primeiro.getDay();
+      var noMes = new Date(anoVisto, mesVisto + 1, 0).getDate();
+      var doAnterior = new Date(anoVisto, mesVisto, 0).getDate();
+      var hoje = hojeTexto();
+
+      for (var i = 0; i < 42; i++) {
+        var dia, mes = mesVisto, ano = anoVisto, fora = false;
+        if (i < vazios) { dia = doAnterior - vazios + 1 + i; mes--; fora = true; }
+        else if (i - vazios < noMes) { dia = i - vazios + 1; }
+        else { dia = i - vazios - noMes + 1; mes++; fora = true; }
+        if (mes < 0) { mes = 11; ano--; }
+        if (mes > 11) { mes = 0; ano++; }
+        if (i >= vazios + noMes && i >= 35) break;
+
+        var texto = textoDeData(ano, mes, dia);
+        var classes = 'cal-dia' + (fora ? ' fora' : '') +
+          (texto === escolhido ? ' escolhido' : '') + (texto === hoje ? ' hoje' : '');
+        grade.appendChild(botao(classes, String(dia), (function (t) {
+          return function () {
+            escolhido = t;
+            var q = partes(t);
+            anoVisto = q.ano; mesVisto = q.mes;
+            desenharCal();
+            if (aoMudar) aoMudar(t);
+          };
+        })(texto)));
+      }
+    }
+
+    desenharCal();
+    Object.defineProperty(caixa, 'value', {
+      get: function () { return escolhido; },
+      set: function (v) {
+        if (!ehData(v)) return;
+        escolhido = v;
+        var q = partes(v);
+        anoVisto = q.ano; mesVisto = q.mes;
+        desenharCal();
+      }
+    });
+    return caixa;
   }
 
   function entradaNumero(valor, passo, minimo, maximo) {
@@ -10104,6 +10589,10 @@
 
   function carimbo() { return hojeTexto().replace(/-/g, ''); }
 
+  // =========================================================================
+  // Leitor de extrato e de fatura. Abre PDF (inclusive com senha), planilha
+  // xlsx, OFX e CSV, sem depender de nenhuma biblioteca de fora. Só lê.
+  // =========================================================================
   // =========================================================================
   // Leitor de extrato e de fatura. Abre PDF (inclusive com senha), planilha
   // xlsx, OFX e CSV, sem depender de nenhuma biblioteca de fora. Só lê.
@@ -11692,6 +12181,26 @@
              /\bvalor\b[^\n]{0,40}\bsaldo\b/.test(s);
     }
 
+    function comSinal(v) { return v.negativo ? -v.valor : v.valor; }
+
+    // A última coluna é o saldo da conta ou o valor do lançamento? Errar aqui
+    // troca o valor pelo saldo e o extrato inteiro sai errado. O cabeçalho não
+    // serve de prova: cada banco escreve de um jeito e às vezes ele nem sai
+    // numa linha só. Então eu faço a conta. Num extrato com saldo corrente,
+    // saldo de uma linha menos o da linha anterior é o valor daquela linha.
+    function pareceColunaDeSaldo(candidatos) {
+      var testes = 0, acertos = 0;
+      for (var i = 1; i < candidatos.length; i++) {
+        var a = candidatos[i - 1].valores, b = candidatos[i].valores;
+        if (a.length < 2 || b.length < 2) continue;
+        var passo = comSinal(b[b.length - 1]) - comSinal(a[a.length - 1]);
+        var valor = comSinal(b[b.length - 2]);
+        testes++;
+        if (passo !== 0 && Math.abs(passo) === Math.abs(valor)) acertos++;
+      }
+      return testes >= 3 && acertos >= testes * 0.6;
+    }
+
     var RE_VALOR = /(-|\+)?\s*R?\$?\s*(-)?\s*(\d{1,3}(?:\.\d{3})+|\d+),(\d{2})(?!\d)/g;
 
     function acharValores(linha) {
@@ -11843,8 +12352,10 @@
       var ano = null, mesRef = null;
       var hoje = new Date();
       var dataDoDia = '';
-      var comSaldo = temColunaDeSaldo(linhas.join('\n'));
 
+      // Primeira passada: separa as linhas que são lançamento e os números de
+      // cada uma. Só depois dá para saber se a última coluna é saldo.
+      var candidatos = [];
       linhas.forEach(function (linha) {
         var cab = anoDoCabecalho(linha);
         if (cab && cab.ano) { ano = cab.ano; mesRef = cab.mes; }
@@ -11864,11 +12375,23 @@
 
         var valores = acharValores(linha.slice(d.fim));
         if (!valores.length) return;
+        candidatos.push({ linha: linha, d: d, valores: valores });
+      });
+
+      var comSaldo = pareceColunaDeSaldo(candidatos) ||
+                     temColunaDeSaldo(linhas.join('\n'));
+      var saldoFinal = null;
+
+      candidatos.forEach(function (c) {
+        var linha = c.linha, d = c.d, valores = c.valores;
 
         // O valor do lançamento é o último número da linha. Quando existe a
         // coluna de saldo, o último é o saldo e o valor é o de antes.
         var v = valores[valores.length - 1];
-        if (comSaldo && valores.length >= 2) v = valores[valores.length - 2];
+        if (comSaldo && valores.length >= 2) {
+          saldoFinal = comSinal(valores[valores.length - 1]);
+          v = valores[valores.length - 2];
+        }
         if (!v.valor) return;
 
         var resto = linha.slice(d.fim);
@@ -11911,7 +12434,10 @@
       var cheio = linhas.join('\n');
       var fatura = pareceFatura(cheio, nomeArquivo);
       if (fatura) ajeitarFatura(itens);
-      return { itens: itens, fatura: fatura, banco: acharBanco(cheio, nomeArquivo) };
+      // O saldo que o próprio banco imprime na última linha é a melhor prova
+      // de que a leitura saiu certa: dá para comparar com a conta do app.
+      return { itens: itens, fatura: fatura, banco: acharBanco(cheio, nomeArquivo),
+               saldoFinal: fatura ? null : saldoFinal };
     }
 
     function arrumarVirada(itens) {
@@ -12709,6 +13235,9 @@
       itens: itens, arquivo: arquivo,
       fatura: !!lido.fatura,
       banco: lido.banco || null,
+      // O saldo que o banco imprime no fim do extrato: é com ele que dá
+      // para saber, depois de lançar, se a leitura bateu.
+      saldoFinal: lido.saldoFinal == null ? null : lido.saldoFinal,
       contaId: contaSugerida(lido),
       lote: lote || null
     };
@@ -13049,20 +13578,38 @@
       ok: 'Sim, pode lançar'
     }, function () {
       var agora = Date.now();
+      var importacaoId = novoId();
       escolhidos.forEach(function (it, i) {
         estado.lancamentos.push({
           id: novoId(), tipo: it.tipo, valor: it.valor,
           descricao: it.descricao, categoria: it.categoria,
           data: it.data, contaId: contaId, contaDestinoId: '',
+          importacaoId: importacaoId,
           criadoEm: agora + i
         });
       });
+
+      // Guardo de onde veio cada leva. Se o extrato entrou errado, dá para
+      // tirar tudo de uma vez em vez de apagar um por um.
+      var quando = escolhidos.map(function (i) { return i.data; }).sort();
+      if (!estado.importacoes) estado.importacoes = [];
+      estado.importacoes.push({
+        id: importacaoId, contaId: contaId,
+        banco: dados.banco ? dados.banco.nome : '',
+        arquivo: (dados.arquivo && dados.arquivo.name) || '',
+        quando: agora, quantos: escolhidos.length,
+        saldoExtrato: dados.saldoFinal == null ? null : dados.saldoFinal,
+        de: quando[0], ate: quando[quando.length - 1]
+      });
+      if (estado.importacoes.length > 60) estado.importacoes = estado.importacoes.slice(-60);
       // O extrato quase sempre é de outro mês. Sem levar a tela para a data
       // do que entrou, a pessoa importa e não vê nada na frente dela.
       var datas = escolhidos.map(function (i) { return i.data; }).sort();
       periodo = { tipo: 'escolhido', de: datas[0], ate: datas[datas.length - 1] };
 
       var lote = dados.lote;
+      var saldoDoExtrato = dados.saldoFinal;
+      var todosMarcados = escolhidos.length === dados.itens.length;
       extratoLido = null;
       salvar();
       voltarNavegacao();
@@ -13071,6 +13618,23 @@
         if (lote && lote.seguir && lote.indice + 1 < lote.total) {
           avisar(escolhidos.length + ' lançamento(s) importados. Vamos ao próximo arquivo.');
           lote.seguir();
+          return;
+        }
+        // O extrato dizia com quanto a conta terminava. Se não bate com o
+        // app, é melhor dizer na hora do que a pessoa descobrir depois.
+        if (saldoDoExtrato != null && todosMarcados) {
+          var agora = saldoConta(contaId, null);
+          if (agora !== saldoDoExtrato) {
+            avisarCaixa('Confira o saldo',
+              'Importei ' + escolhidos.length + ' lançamento(s). O extrato terminava com ' +
+              emReais(saldoDoExtrato) + ', e a conta "' + conta.nome + '" aqui fechou em ' +
+              emReais(agora) + '.\n\nQuase sempre é porque o extrato não pega desde o começo ' +
+              'da conta. Em "Conferir esta conta" dá para acertar o saldo inicial ou tirar a ' +
+              'importação inteira.', function () { irPara('transacoes'); });
+            return;
+          }
+          avisar(escolhidos.length + ' lançamento(s). O saldo bateu com o extrato.');
+          irPara('transacoes');
           return;
         }
         irPara('transacoes');
