@@ -508,6 +508,10 @@
   .conf-linha:last-child { border-bottom: 0; }
   .conf-cab { color: var(--fraco); font-size: 11px; text-transform: uppercase;
               letter-spacing: .06em; }
+  /* As transações de dentro de um grupo repetido, recuadas e presas nele. */
+  .grupo-aberto { margin: 0 0 6px 14px; border-left: 2px solid var(--borda);
+                  padding-left: 8px; }
+  .grupo-aberto .linha { padding-top: 8px; padding-bottom: 8px; }
   .btn.btn-vermelho { background: transparent; border: 1px solid rgba(224,69,63,.55);
                       color: #FF9A94; }
   .btn.btn-vermelho:active { background: rgba(224,69,63,.14); }
@@ -1460,7 +1464,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.3.0';
+  var VERSAO = '4.3.1';
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
@@ -7875,6 +7879,15 @@
     return linhas;
   }
 
+  // Data e hora de quando o lançamento entrou no app. É o que separa duas
+  // transações idênticas uma da outra.
+  function quandoEntrou(ms) {
+    var d = new Date(inteiro(ms) || Date.now());
+    return dataBr(deData(d)) + ' às ' +
+      String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') +
+      ':' + String(d.getSeconds()).padStart(2, '0');
+  }
+
   function nomeDoMesChave(k) {
     var p = k.split('-');
     return MESES[+p[1] - 1].slice(0, 3) + '/' + p[0].slice(2);
@@ -8004,22 +8017,49 @@
         mm.appendChild(no('div', 'linha-nota',
           'O saldo de cada linha é como a conta fechou naquele mês. Compare com o extrato ' +
           'do banco para achar onde as contas se separam.'));
-        var tab = no('div', 'tabela-conf');
-        var cab = no('div', 'conf-linha conf-cab');
-        ['Mês', 'Entrou', 'Saiu', 'Saldo'].forEach(function (t) { cab.appendChild(no('span', null, t)); });
-        tab.appendChild(cab);
-        meses.slice(0, 24).forEach(function (m) {
-          var l = no('div', 'conf-linha');
-          l.appendChild(no('span', null, nomeDoMesChave(m.mes)));
-          l.appendChild(no('span', 'verde', emReais(m.entrou)));
-          l.appendChild(no('span', 'vermelho', emReais(m.saiu)));
-          l.appendChild(no('span', 'num' + (m.saldo < 0 ? ' vermelho' : ''), emReais(m.saldo)));
-          tab.appendChild(l);
-        });
-        mm.appendChild(tab);
-        if (meses.length > 24) {
-          mm.appendChild(no('div', 'linha-nota', 'Mostrando os 24 meses mais recentes de ' + meses.length + '.'));
+        // Conta de anos inteiros não cabe numa tela só, e cortar os mais
+        // antigos esconde justo onde a diferença costuma começar.
+        var caixaMeses = no('div');
+        mm.appendChild(caixaMeses);
+        var pagMes = 0;
+        var POR_PAGINA_MES = 12;
+
+        function desenharMeses() {
+          var paginas = Math.max(1, Math.ceil(meses.length / POR_PAGINA_MES));
+          pagMes = Math.min(Math.max(pagMes, 0), paginas - 1);
+          var de = pagMes * POR_PAGINA_MES;
+          var ate = Math.min(de + POR_PAGINA_MES, meses.length);
+          caixaMeses.textContent = '';
+
+          function barra() {
+            var b = no('div', 'paginas');
+            var antes = botao('btn-mini', '‹ Anteriores', function () { pagMes--; desenharMeses(); });
+            antes.disabled = pagMes === 0;
+            var depois = botao('btn-mini', 'Próximos ›', function () { pagMes++; desenharMeses(); });
+            depois.disabled = pagMes >= paginas - 1;
+            juntar(b, antes,
+              no('span', 'paginas-conta', (de + 1) + '–' + ate + ' de ' + meses.length + ' meses'),
+              depois);
+            return b;
+          }
+
+          if (paginas > 1) caixaMeses.appendChild(barra());
+          var tab = no('div', 'tabela-conf');
+          var cab = no('div', 'conf-linha conf-cab');
+          ['Mês', 'Entrou', 'Saiu', 'Saldo'].forEach(function (t) { cab.appendChild(no('span', null, t)); });
+          tab.appendChild(cab);
+          meses.slice(de, ate).forEach(function (m) {
+            var l = no('div', 'conf-linha');
+            l.appendChild(no('span', null, nomeDoMesChave(m.mes)));
+            l.appendChild(no('span', 'verde', emReais(m.entrou)));
+            l.appendChild(no('span', 'vermelho', emReais(m.saiu)));
+            l.appendChild(no('span', 'num' + (m.saldo < 0 ? ' vermelho' : ''), emReais(m.saldo)));
+            tab.appendChild(l);
+          });
+          caixaMeses.appendChild(tab);
+          if (paginas > 1) caixaMeses.appendChild(barra());
         }
+        desenharMeses();
         forma.appendChild(mm);
       }
 
@@ -8030,17 +8070,81 @@
         rep.appendChild(no('div', 'rotulo', 'Possíveis repetidos'));
         rep.appendChild(no('div', 'linha-nota',
           grupos.length + ' grupo(s) com data, valor e descrição iguais. Pode ser importação ' +
-          'repetida — ou pode ser real, como duas compras iguais no mesmo dia. Toque para ver.'));
-        grupos.slice(0, 12).forEach(function (g) {
-          var l = botao('linha', null, function () { abrirFolhaLancamento(g[0].id); });
-          juntar(l,
-            selo('#F87171', String(g.length)),
-            juntar(no('div', 'linha-texto'),
-              no('div', 'linha-titulo', g[0].descricao || g[0].categoria),
-              no('div', 'linha-sub', dataBr(g[0].data) + ' · ' + g.length + ' vezes')),
-            no('div', 'linha-valor num', emReais(g[0].valor)));
-          rep.appendChild(l);
-        });
+          'repetida — ou pode ser real, como duas compras iguais no mesmo dia. Toque para abrir ' +
+          'o grupo e ver uma por uma.'));
+
+        var caixaRep = no('div');
+        rep.appendChild(caixaRep);
+        var pagRep = 0;
+        var POR_PAGINA_REP = 10;
+        var abertos = {};
+
+        function desenharRepetidos() {
+          var paginas = Math.max(1, Math.ceil(grupos.length / POR_PAGINA_REP));
+          pagRep = Math.min(Math.max(pagRep, 0), paginas - 1);
+          var de = pagRep * POR_PAGINA_REP;
+          var ate = Math.min(de + POR_PAGINA_REP, grupos.length);
+          caixaRep.textContent = '';
+
+          function barra() {
+            var b = no('div', 'paginas');
+            var antes = botao('btn-mini', '‹ Anteriores', function () { pagRep--; desenharRepetidos(); });
+            antes.disabled = pagRep === 0;
+            var depois = botao('btn-mini', 'Próximos ›', function () { pagRep++; desenharRepetidos(); });
+            depois.disabled = pagRep >= paginas - 1;
+            juntar(b, antes,
+              no('span', 'paginas-conta', (de + 1) + '–' + ate + ' de ' + grupos.length + ' grupos'),
+              depois);
+            return b;
+          }
+
+          if (paginas > 1) caixaRep.appendChild(barra());
+
+          grupos.slice(de, ate).forEach(function (g, i) {
+            var chave = de + i;
+            var aberto = !!abertos[chave];
+            // O grupo abre em vez de pular direto para um lançamento: com
+            // duas iguais, ninguém sabe qual delas abriu.
+            var l = botao('linha', null, function () {
+              abertos[chave] = !aberto;
+              desenharRepetidos();
+            });
+            juntar(l,
+              selo('#F87171', String(g.length)),
+              juntar(no('div', 'linha-texto'),
+                no('div', 'linha-titulo', g[0].descricao || g[0].categoria),
+                no('div', 'linha-sub', dataBr(g[0].data) + ' · ' + g.length + ' vezes')),
+              juntar(no('div', 'linha-fim'),
+                no('div', 'linha-valor num', emReais(g[0].valor)),
+                no('div', 'linha-sub', aberto ? 'fechar ▴' : 'ver ▾')));
+            caixaRep.appendChild(l);
+
+            if (!aberto) return;
+            var dentro = no('div', 'grupo-aberto');
+            g.forEach(function (l2, k) {
+              // Duas iguais ficariam com a mesma cara. O que separa uma da
+              // outra é de onde ela veio: qual arquivo, ou quando entrou.
+              var deOnde = '';
+              (estado.importacoes || []).forEach(function (imp) {
+                if (imp.id === l2.importacaoId) deOnde = imp.arquivo || imp.banco || 'extrato importado';
+              });
+              if (!deOnde) deOnde = l2.importacaoId ? 'extrato importado' : 'lançado à mão';
+              var b = botao('linha', null, function () { abrirFolhaLancamento(l2.id); });
+              juntar(b,
+                selo('#8A7A55', String(k + 1)),
+                juntar(no('div', 'linha-texto'),
+                  no('div', 'linha-titulo', l2.descricao || l2.categoria),
+                  no('div', 'linha-sub', l2.categoria + ' · ' + deOnde),
+                  no('div', 'linha-nota', 'entrou em ' + quandoEntrou(l2.criadoEm))),
+                no('div', 'linha-valor num', emReais(l2.valor)));
+              dentro.appendChild(b);
+            });
+            caixaRep.appendChild(dentro);
+          });
+
+          if (paginas > 1) caixaRep.appendChild(barra());
+        }
+        desenharRepetidos();
         forma.appendChild(rep);
       }
 
