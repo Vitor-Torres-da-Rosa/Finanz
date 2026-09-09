@@ -509,6 +509,12 @@
   .conf-linha:last-child { border-bottom: 0; }
   .conf-cab { color: var(--fraco); font-size: 11px; text-transform: uppercase;
               letter-spacing: .06em; }
+  /* A tabela de taxas: 1x, 2x, 3x... lado a lado, três por linha. */
+  .grade-taxas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .taxa-cel { display: flex; align-items: center; gap: 6px; }
+  .taxa-vezes { font-size: 12px; color: var(--fraco); width: 26px; flex: none; }
+  .taxa-cel .entrada { margin: 0; padding: 10px 8px; font-size: 13px; }
+
   /* Cada forma de pagamento numa linha, com o preço à direita. */
   .preco-linha { display: flex; align-items: center; justify-content: space-between;
                  gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--borda); }
@@ -1482,7 +1488,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.6.0';
+  var VERSAO = '4.7.0';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1491,6 +1497,19 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '4.7.0',
+      data: '2026-09-10',
+      itens: [
+        'Taxas da maquininha em Mais: uma tabela por bandeira, com a taxa de cada parcelamento. Escreve uma vez e todo orçamento já vem com ela — dá para colar o texto do app da maquininha.',
+        'No orçamento você marca quais cartões aceita e até quantas parcelas.',
+        'Escolhendo "o cliente paga a taxa", o preço de cada parcelamento já sai calculado, e você recebe o mesmo em todos.',
+        'O PDF traz a tabela inteira: 1x, 2x, 3x até o limite, com o valor de cada parcela e o total. O cliente lê a linha que couber no bolso dele.',
+        'Parcelado direto também virou "até X vezes", com todas as opções no PDF.',
+        '"Ver o PDF antes" abre o orçamento sem precisar baixar.',
+        'Mão de obra e custo logístico subiram para logo abaixo da descrição.'
+      ]
+    },
     {
       versao: '4.6.0',
       data: '2026-09-10',
@@ -2027,8 +2046,9 @@
         // Quem assina o orçamento. Fica guardado para não digitar de novo.
         negocio: '',
         contato: '',
-        // Desconto à vista e taxas da maquininha, como você usou da última vez.
-        taxas: { descontoAvista: 10, taxaCredito: 0, taxaParcelado: 0, parcelasCartao: 12 }
+        // A tabela da maquininha: desconto à vista, bandeiras e a taxa de
+        // cada parcelamento. Escrita uma vez, vale para todo orçamento.
+        taxas: null
       },
       contas: [],
       lancamentos: [],
@@ -2238,6 +2258,21 @@
     return s.slice(rep[1].length).replace(/^\s*[:\u2013\u2014-]?\s*/, '');
   }
 
+  // Tabela de taxas, arrumada. Mora aqui porque o perfil e cada orçamento
+  // guardam a mesma coisa.
+  function limparPagamento(t) {
+    var b = t && Array.isArray(t.bandeiras) ? t.bandeiras : [];
+    // Sem nada escrito, vale o padrão de 10% — zerar aqui apagaria o
+    // desconto de quem nunca abriu a tela de taxas.
+    var desc = t && t.descontoAvista != null ? Number(t.descontoAvista) : 10;
+    return {
+      descontoAvista: Math.min(Math.max(isFinite(desc) ? desc : 10, 0), 90),
+      repassar: !(t && t.repassar === false),
+      ateParcelas: Math.min(Math.max(inteiro(t && t.ateParcelas) || 12, 1), 18),
+      bandeiras: (b.length ? b : [{ nome: 'Cartões' }]).map(limparBandeira)
+    };
+  }
+
   function limparEstado(bruto) {
     var limpo = estadoPadrao();
     if (!bruto || typeof bruto !== 'object') return limpo;
@@ -2256,13 +2291,7 @@
       var infl = Number(bruto.perfil.inflacaoAnual);
       limpo.perfil.inflacaoAnual = isFinite(infl) ? Math.min(Math.max(infl, 0), 40) : 4;
       if (bruto.perfil.taxas && typeof bruto.perfil.taxas === 'object') {
-        var tx = bruto.perfil.taxas;
-        limpo.perfil.taxas = {
-          descontoAvista: Math.min(Math.max(Number(tx.descontoAvista) || 0, 0), 90),
-          taxaCredito: Math.min(Math.max(Number(tx.taxaCredito) || 0, 0), 50),
-          taxaParcelado: Math.min(Math.max(Number(tx.taxaParcelado) || 0, 0), 50),
-          parcelasCartao: Math.min(Math.max(inteiro(tx.parcelasCartao) || 12, 1), 24)
-        };
+        limpo.perfil.taxas = limparPagamento(bruto.perfil.taxas);
       }
       limpo.perfil.negocio = texto(bruto.perfil.negocio).slice(0, 60);
       limpo.perfil.contato = texto(bruto.perfil.contato).slice(0, 40);
@@ -2362,10 +2391,15 @@
           maoDeObra: inteiro(p.maoDeObra),
           logistica: inteiro(p.logistica),
           desconto: inteiro(p.desconto),
-          descontoAvista: Math.min(Math.max(Number(p.descontoAvista) || 0, 0), 90),
-          taxaCredito: Math.min(Math.max(Number(p.taxaCredito) || 0, 0), 50),
-          taxaParcelado: Math.min(Math.max(Number(p.taxaParcelado) || 0, 0), 50),
-          parcelasCartao: Math.min(Math.max(inteiro(p.parcelasCartao) || 1, 1), 24),
+          pagamento: limparPagamento(p.pagamento || {
+            // Orçamento das versões antigas: uma taxa só para tudo.
+            descontoAvista: p.descontoAvista == null ? 0 : p.descontoAvista, repassar: false,
+            ateParcelas: p.parcelasCartao,
+            bandeiras: [{ nome: 'Cartões', debito: 0,
+              credito: Array.apply(null, { length: 24 }).map(function (_, i) {
+                return i === 0 ? (Number(p.taxaCredito) || 0) : (Number(p.taxaParcelado) || 0);
+              }) }]
+          }),
           direto: limparDireto(p.direto),
           obs: texto(p.obs).slice(0, 400),
           servicoId: texto(p.servicoId),
@@ -6893,64 +6927,297 @@
   // Os preços que saem de um orçamento. O preço cheio é o do cartão; quem
   // paga em dinheiro ou Pix leva o desconto. A taxa da maquininha não muda
   // o preço do cliente: ela diz quanto sobra para quem vende.
+  // ---- Taxas da maquininha ----------------------------------------------
+  // Cada bandeira cobra o seu, e o parcelamento cobra mais a cada parcela.
+  // Guardo a tabela inteira: débito e uma taxa por número de parcelas.
+
+  var TETO_PARCELAS = 18;
+
+  function bandeiraVazia(nome) {
+    var credito = [];
+    for (var i = 0; i < TETO_PARCELAS; i++) credito.push(0);
+    return { id: novoId(), nome: nome || 'Cartões', debito: 0, credito: credito };
+  }
+
+  function limparBandeira(b) {
+    var credito = [];
+    var vindo = Array.isArray(b && b.credito) ? b.credito : [];
+    for (var i = 0; i < TETO_PARCELAS; i++) {
+      credito.push(Math.min(Math.max(Number(vindo[i]) || 0, 0), 60));
+    }
+    return {
+      id: texto(b && b.id) || novoId(),
+      nome: texto(b && b.nome).slice(0, 40) || 'Cartões',
+      debito: Math.min(Math.max(Number(b && b.debito) || 0, 0), 60),
+      credito: credito
+    };
+  }
+
+  function taxasGuardadas() {
+    var t = (estado.perfil && estado.perfil.taxas) || {};
+    var bandeiras = Array.isArray(t.bandeiras) && t.bandeiras.length
+      ? t.bandeiras.map(limparBandeira)
+      : [bandeiraVazia('Mastercard e Visa'), bandeiraVazia('Amex e Elo')];
+    return {
+      descontoAvista: t.descontoAvista == null ? 10 : Math.min(Math.max(Number(t.descontoAvista) || 0, 0), 90),
+      repassar: t.repassar !== false,
+      ateParcelas: Math.min(Math.max(inteiro(t.ateParcelas) || 12, 1), TETO_PARCELAS),
+      bandeiras: bandeiras
+    };
+  }
+
+  function guardarTaxas(pag) {
+    estado.perfil.taxas = {
+      descontoAvista: pag.descontoAvista,
+      repassar: pag.repassar,
+      ateParcelas: pag.ateParcelas,
+      bandeiras: pag.bandeiras.map(limparBandeira)
+    };
+  }
+
+  // O preço que cobre a taxa: cobrando isto, depois do desconto da
+  // maquininha sobra exatamente o valor do orçamento.
+  function comTaxa(base, taxa, repassar) {
+    if (!repassar || !taxa) return base;
+    var fator = 1 - Math.min(taxa, 60) / 100;
+    return fator > 0 ? Math.round(base / fator) : base;
+  }
+
   function precosDaProposta(p) {
     var itens = (p.materiais || []).reduce(function (soma, m) { return soma + inteiro(m.valor); }, 0);
     var outros = (p.outros || []).reduce(function (soma, m) { return soma + inteiro(m.valor); }, 0);
     var bruto = itens + outros + inteiro(p.maoDeObra) + inteiro(p.logistica);
     var cheio = Math.max(bruto - inteiro(p.desconto), 0);
 
-    var descAvista = Math.min(Math.max(Number(p.descontoAvista) || 0, 0), 90);
-    var taxaCred = Math.min(Math.max(Number(p.taxaCredito) || 0, 0), 50);
-    var taxaParc = Math.min(Math.max(Number(p.taxaParcelado) || 0, 0), 50);
-    var vezesCartao = Math.min(Math.max(inteiro(p.parcelasCartao) || 1, 1), 24);
-
+    var pag = p.pagamento || taxasGuardadas();
+    var descAvista = Math.min(Math.max(Number(pag.descontoAvista) || 0, 0), 90);
+    var repassar = pag.repassar !== false;
+    var ate = Math.min(Math.max(inteiro(pag.ateParcelas) || 1, 1), TETO_PARCELAS);
     var aVista = Math.round(cheio * (1 - descAvista / 100));
+
+    // Uma linha por bandeira e por número de parcelas: é isso que vai no
+    // papel, para o cliente escolher em quantas quer.
+    var bandeiras = (pag.bandeiras || []).map(function (b) {
+      var totalDebito = comTaxa(cheio, b.debito, repassar);
+      var linhas = [];
+      for (var n = 1; n <= ate; n++) {
+        var taxa = Number(b.credito[n - 1]) || 0;
+        var total = comTaxa(cheio, taxa, repassar);
+        linhas.push({
+          vezes: n, taxa: taxa, total: total,
+          parcela: Math.round(total / n),
+          liquido: Math.round(total * (1 - Math.min(taxa, 60) / 100))
+        });
+      }
+      return {
+        nome: b.nome, debito: b.debito,
+        totalDebito: totalDebito,
+        liquidoDebito: Math.round(totalDebito * (1 - Math.min(b.debito, 60) / 100)),
+        credito: linhas
+      };
+    });
+
+    // Parcelado direto: o cliente escolhe em quantas, então mostro todas.
     var d = p.direto || {};
     var direto = null;
     if (d.ligado) {
+      var ateDireto = Math.min(Math.max(inteiro(d.vezes) || 1, 1), 24);
       var entrada = Math.min(inteiro(d.entrada), cheio);
       var aParcelar = Math.max(cheio - entrada, 0);
-      var c = calcularParcelas(aParcelar, d.vezes || 1, d.modo || 'nenhum',
-        d.modo === 'porcento' ? (Number(d.acrescimo) || 0) : inteiro(d.acrescimo),
-        ehData(d.primeira) ? d.primeira : hojeTexto(), 0, 0);
-      direto = { entrada: entrada, itens: c.itens, total: entrada + c.total,
-                 acrescimo: c.acrescimoTotal, vezes: c.itens.length };
+      var planos = [];
+      for (var v = 1; v <= ateDireto; v++) {
+        var c = calcularParcelas(aParcelar, v, d.modo || 'nenhum',
+          d.modo === 'porcento' ? (Number(d.acrescimo) || 0) : inteiro(d.acrescimo),
+          ehData(d.primeira) ? d.primeira : hojeTexto(), 0, 0);
+        planos.push({ vezes: v, entrada: entrada, itens: c.itens,
+                      total: entrada + c.total, acrescimo: c.acrescimoTotal });
+      }
+      direto = { ate: ateDireto, entrada: entrada, planos: planos,
+                 maior: planos[planos.length - 1] };
     }
 
     return {
       materiais: itens, outros: outros, bruto: bruto, cheio: cheio,
-      descAvista: descAvista, aVista: aVista,
-      taxaCredito: taxaCred, taxaParcelado: taxaParc, vezesCartao: vezesCartao,
-      liquidoCredito: Math.round(cheio * (1 - taxaCred / 100)),
-      liquidoParcelado: Math.round(cheio * (1 - taxaParc / 100)),
-      porParcelaCartao: Math.round(cheio / vezesCartao),
-      direto: direto
+      descAvista: descAvista, aVista: aVista, repassar: repassar,
+      ate: ate, bandeiras: bandeiras, direto: direto
     };
   }
 
-  // O que o resto do app chama de "total" é o preço cheio.
+  // O que o resto do app chama de "total" é o preço do orçamento.
   function totalDaProposta(p) {
     var pr = precosDaProposta(p);
     return { materiais: pr.materiais, bruto: pr.bruto, total: pr.cheio };
   }
 
-  function taxasGuardadas() {
-    var t = (estado.perfil && estado.perfil.taxas) || {};
-    return {
-      descontoAvista: t.descontoAvista == null ? 10 : Number(t.descontoAvista),
-      taxaCredito: t.taxaCredito == null ? 0 : Number(t.taxaCredito),
-      taxaParcelado: t.taxaParcelado == null ? 0 : Number(t.taxaParcelado),
-      parcelasCartao: t.parcelasCartao == null ? 12 : inteiro(t.parcelasCartao)
-    };
+  // A tabela da maquininha, escrita uma vez e usada em todo orçamento.
+  // Dá para digitar ou colar o texto do aplicativo da maquininha.
+  function abrirFolhaTaxas(aoTerminar) {
+    var pag = taxasGuardadas();
+    montar();
+
+    function montar() {
+      abrirFolha('Taxas da maquininha', function (folha) {
+        var forma = no('div');
+        forma.appendChild(no('p', 'linha-sub',
+          'O que a maquininha desconta de você, por bandeira e por número de parcelas. ' +
+          'Escreva uma vez: todo orçamento novo já vem com ela.'));
+
+        var campoDesc = entradaTextoNumero(numeroBr(pag.descontoAvista), '10');
+        forma.appendChild(campo('Desconto no dinheiro ou Pix (%)', campoDesc));
+
+        var campoAte = entradaSelecao(
+          Array.apply(null, { length: TETO_PARCELAS }).map(function (_, i) {
+            return { valor: String(i + 1), rotulo: i === 0 ? 'só à vista' : 'até ' + (i + 1) + 'x' };
+          }), String(pag.ateParcelas), 'Parcelas que você aceita');
+        forma.appendChild(campo('Parcelas que você aceita', campoAte));
+        campoAte.aoMudar = function () { guardar(); montar(); };
+
+        var campoRepassar = entradaSelecao([
+          { valor: 'sim', rotulo: 'O cliente paga a taxa', detalhe: 'o preço sobe conforme as parcelas' },
+          { valor: 'nao', rotulo: 'A taxa sai do meu bolso', detalhe: 'o preço é o mesmo em qualquer parcela' }
+        ], pag.repassar ? 'sim' : 'nao', 'A taxa entra no preço?');
+        forma.appendChild(campo('A taxa entra no preço?', campoRepassar));
+
+        var ate = inteiro(campoAte.value) || 12;
+
+        pag.bandeiras.forEach(function (b, indice) {
+          var c = cartao();
+          var topo = topoDeCartao(b.nome || 'Cartões', pag.bandeiras.length > 1 ? 'Tirar' : null, function () {
+            guardar();
+            pag.bandeiras.splice(indice, 1);
+            montar();
+          });
+          c.appendChild(topo);
+
+          var cNome = entradaTexto(b.nome, 'Ex.: Mastercard e Visa', 40);
+          c.appendChild(campo('Bandeiras', cNome));
+          b.campoNome = cNome;
+
+          var cDeb = entradaTextoNumero(numeroBr(b.debito), '0');
+          c.appendChild(campo('Débito (%)', cDeb));
+          b.campoDebito = cDeb;
+
+          var grade = no('div', 'grade-taxas');
+          b.camposCredito = [];
+          for (var n = 1; n <= ate; n++) {
+            var cel = no('div', 'taxa-cel');
+            cel.appendChild(no('span', 'taxa-vezes', n === 1 ? '1x' : n + 'x'));
+            var i = entradaTextoNumero(numeroBr(b.credito[n - 1]), '0');
+            cel.appendChild(i);
+            b.camposCredito.push(i);
+            grade.appendChild(cel);
+          }
+          c.appendChild(no('div', 'rotulo', 'Crédito (%)'));
+          c.appendChild(grade);
+          forma.appendChild(c);
+        });
+
+        var mais = botao('btn btn-fantasma', '+ Outra bandeira', function () {
+          guardar();
+          pag.bandeiras.push(bandeiraVazia('Outra bandeira'));
+          montar();
+        });
+        forma.appendChild(mais);
+
+        var colar = botao('btn btn-fantasma', 'Colar a tabela da maquininha', function () {
+          guardar();
+          abrirColarTaxas(function (lido) {
+            if (!lido) return;
+            var alvoB = pag.bandeiras[0] || bandeiraVazia('Cartões');
+            if (lido.debito != null) alvoB.debito = lido.debito;
+            lido.credito.forEach(function (v, i) { if (v != null) alvoB.credito[i] = v; });
+            if (!pag.bandeiras.length) pag.bandeiras.push(alvoB);
+            montar();
+            avisar('Peguei ' + lido.quantos + ' taxa(s) para "' + alvoB.nome + '".');
+          });
+        });
+        colar.style.marginTop = '8px';
+        forma.appendChild(colar);
+        var notaColar = no('div', 'linha-nota',
+          'Copie o texto do aplicativo da maquininha e cole aqui. Ele entra na primeira ' +
+          'bandeira da lista — o app não consegue ler uma foto da tela, só texto.');
+        forma.appendChild(notaColar);
+
+        function guardar() {
+          pag.descontoAvista = Math.min(Math.max(comoNumero(campoDesc.value, 0), 0), 90);
+          pag.repassar = campoRepassar.value === 'sim';
+          pag.ateParcelas = inteiro(campoAte.value) || 12;
+          pag.bandeiras.forEach(function (b) {
+            if (b.campoNome) b.nome = b.campoNome.value.trim().slice(0, 40) || 'Cartões';
+            if (b.campoDebito) b.debito = Math.min(Math.max(comoNumero(b.campoDebito.value, 0), 0), 60);
+            (b.camposCredito || []).forEach(function (i, k) {
+              b.credito[k] = Math.min(Math.max(comoNumero(i.value, 0), 0), 60);
+            });
+          });
+        }
+
+        var acoes = no('div', 'acoes');
+        acoes.appendChild(botao('btn btn-ouro', 'Salvar as taxas', function () {
+          guardar();
+          if (!pag.bandeiras.length) pag.bandeiras.push(bandeiraVazia('Cartões'));
+          guardarTaxas(pag);
+          salvar();
+          fecharFolha();
+          avisar('Taxas guardadas.');
+          if (aoTerminar) setTimeout(function () { aoTerminar(taxasGuardadas()); }, 240);
+        }));
+        forma.appendChild(acoes);
+        folha.appendChild(forma);
+      });
+    }
   }
 
-  function guardarTaxas(p) {
-    estado.perfil.taxas = {
-      descontoAvista: Number(p.descontoAvista) || 0,
-      taxaCredito: Number(p.taxaCredito) || 0,
-      taxaParcelado: Number(p.taxaParcelado) || 0,
-      parcelasCartao: inteiro(p.parcelasCartao) || 12
-    };
+  // Lê a tabela colada: "Débito 1,37%", "1x 3,15%", uma por linha ou tudo
+  // emendado. Só precisa achar o número de parcelas e o percentual.
+  function lerTaxasColadas(texto) {
+    var s = String(texto || '').replace(/ /g, ' ');
+    var credito = [];
+    var debito = null;
+    var quantos = 0;
+
+    var mDeb = /d[ée]bito[^0-9]{0,20}(\d{1,2}(?:[.,]\d{1,2})?)\s*%/i.exec(s);
+    if (mDeb) { debito = Number(mDeb[1].replace(',', '.')); quantos++; }
+
+    var re = /(\d{1,2})\s*x[^0-9]{0,20}(\d{1,2}(?:[.,]\d{1,2})?)\s*%/gi;
+    var m;
+    while ((m = re.exec(s))) {
+      var n = +m[1];
+      if (n < 1 || n > TETO_PARCELAS) continue;
+      credito[n - 1] = Number(m[2].replace(',', '.'));
+      quantos++;
+    }
+    return quantos ? { debito: debito, credito: credito, quantos: quantos } : null;
+  }
+
+  function abrirColarTaxas(pronto) {
+    abrirFolha('Colar as taxas', function (folha) {
+      var forma = no('div');
+      forma.appendChild(no('p', 'linha-sub',
+        'Cole aqui o texto que o aplicativo da maquininha mostra. O app procura ' +
+        '"Débito 1,37%", "1x 3,15%", "2x 5,39%" e assim por diante.'));
+      var area = no('textarea', 'entrada area-colar');
+      area.rows = 10;
+      area.placeholder = 'Débito 1,37%\n1x 3,15%\n2x 5,39%\n3x 6,12%\n...';
+      forma.appendChild(area);
+      var nota = no('div', 'linha-nota');
+      forma.appendChild(nota);
+      area.addEventListener('input', function () {
+        var lido = lerTaxasColadas(area.value);
+        nota.textContent = lido
+          ? 'Achei ' + lido.quantos + ' taxa(s).'
+          : 'Ainda não achei nenhuma taxa nesse texto.';
+      });
+
+      var acoes = no('div', 'acoes');
+      acoes.appendChild(botao('btn btn-ouro', 'Usar estas taxas', function () {
+        var lido = lerTaxasColadas(area.value);
+        if (!lido) { mostrarErro(forma, 'Não achei taxa nenhuma nesse texto.'); return; }
+        fecharFolha();
+        setTimeout(function () { pronto(lido); }, 240);
+      }));
+      forma.appendChild(acoes);
+      folha.appendChild(forma);
+    });
   }
 
   // Um tipo novo escrito na hora, sem sair da tela do orçamento.
@@ -6981,15 +7248,13 @@
       outros: (existente.outros || []).map(function (m) { return { nome: m.nome, valor: m.valor }; }),
       maoDeObra: existente.maoDeObra, logistica: existente.logistica,
       desconto: existente.desconto, obs: existente.obs,
-      descontoAvista: existente.descontoAvista, taxaCredito: existente.taxaCredito,
-      taxaParcelado: existente.taxaParcelado, parcelasCartao: existente.parcelasCartao,
+      pagamento: JSON.parse(JSON.stringify(existente.pagamento || guardadas)),
       direto: JSON.parse(JSON.stringify(existente.direto || { ligado: false }))
     } : {
       tipo: TIPO_PADRAO, titulo: '', validade: somaDias(hojeTexto(), 15),
       materiais: [], outros: [],
       maoDeObra: 0, logistica: 0, desconto: 0, obs: '',
-      descontoAvista: guardadas.descontoAvista, taxaCredito: guardadas.taxaCredito,
-      taxaParcelado: guardadas.taxaParcelado, parcelasCartao: guardadas.parcelasCartao,
+      pagamento: JSON.parse(JSON.stringify(guardadas)),
       direto: { ligado: false, entrada: 0, vezes: 3, modo: 'nenhum', acrescimo: 0,
                 primeira: somaMeses(hojeTexto(), 1) }
     };
@@ -7057,20 +7322,20 @@
           return c;
         }
 
-        forma.appendChild(listaDeValores('Materiais', 'materiais',
-          'Sem material nenhum. Toque em "+ Item" se o serviço usar peças.', camposMat));
-
         var campoMao = entradaValor(rascunho.maoDeObra, false);
         forma.appendChild(campo('Mão de obra', campoMao));
-
-        forma.appendChild(listaDeValores('Outros valores', 'outros',
-          'Para o que não é material nem mão de obra: valor de venda, diária, aluguel.', camposOut));
 
         var campoLog = entradaValor(rascunho.logistica, false);
         forma.appendChild(campo('Custo logístico', campoLog));
         var notaLog = no('div', 'linha-nota', 'Deslocamento, combustível, frete do material.');
         notaLog.style.margin = '-8px 0 18px';
         forma.appendChild(notaLog);
+
+        forma.appendChild(listaDeValores('Materiais', 'materiais',
+          'Sem material nenhum. Toque em "+ Item" se o serviço usar peças.', camposMat));
+
+        forma.appendChild(listaDeValores('Outros valores', 'outros',
+          'Para o que não é material nem mão de obra: valor de venda, diária, aluguel.', camposOut));
 
         var campoDesc = entradaValor(rascunho.desconto, false);
         forma.appendChild(campo('Desconto', campoDesc));
@@ -7109,34 +7374,65 @@
         pintarValidade();
 
         // ---- formas de pagamento ----
+        // As taxas vêm da tabela da maquininha, escrita uma vez em Mais.
+        // Aqui só se escolhe o que este orçamento aceita.
         var cPag = cartao();
-        cPag.appendChild(no('div', 'rotulo', 'Formas de pagamento'));
-        cPag.appendChild(no('div', 'linha-nota',
-          'O preço cheio é o do cartão. Dinheiro e Pix levam o desconto que você puser aqui.'));
+        cPag.appendChild(topoDeCartao('Formas de pagamento', 'Taxas', function () {
+          guardarCampos();
+          fecharFolha();
+          setTimeout(function () {
+            abrirFolhaTaxas(function (novas) {
+              rascunho.pagamento = JSON.parse(JSON.stringify(novas));
+              montar();
+            });
+          }, 240);
+        }));
 
-        var campoDescAv = entradaTextoNumero(numeroBr(rascunho.descontoAvista), '10');
+        var campoDescAv = entradaTextoNumero(numeroBr(rascunho.pagamento.descontoAvista), '10');
         cPag.appendChild(campo('Desconto no dinheiro ou Pix (%)', campoDescAv));
+        campoDescAv.addEventListener('input', somar);
+        campoDescAv.addEventListener('change', somar);
 
         var campoVezesCartao = entradaSelecao(
-          [1,2,3,4,5,6,7,8,9,10,12,15,18,24].map(function (n) {
-            return { valor: String(n), rotulo: n === 1 ? 'só à vista' : 'até ' + n + 'x' };
-          }), String(rascunho.parcelasCartao || 12), 'Parcelas no cartão');
+          Array.apply(null, { length: TETO_PARCELAS }).map(function (_, i) {
+            return { valor: String(i + 1), rotulo: i === 0 ? 'só à vista' : 'até ' + (i + 1) + 'x' };
+          }), String(rascunho.pagamento.ateParcelas || 12), 'Parcelas no cartão');
         cPag.appendChild(campo('Parcelas no cartão', campoVezesCartao));
         campoVezesCartao.aoMudar = function () { somar(); };
+        var notaVezes = no('div', 'linha-nota',
+          'No PDF o cliente vê o preço de cada parcelamento, de 1x até esse número, ' +
+          'e escolhe o que couber no bolso dele.');
+        notaVezes.style.marginTop = '-8px';
+        cPag.appendChild(notaVezes);
 
-        var campoTaxaCred = entradaTextoNumero(numeroBr(rascunho.taxaCredito), '0');
-        cPag.appendChild(campo('Taxa da maquininha à vista (%)', campoTaxaCred));
-        var campoTaxaParc = entradaTextoNumero(numeroBr(rascunho.taxaParcelado), '0');
-        cPag.appendChild(campo('Taxa da maquininha parcelado (%)', campoTaxaParc));
-        var notaTaxa = no('div', 'linha-nota',
-          'As taxas não mudam o preço do cliente: elas mostram quanto sobra para você. ' +
-          'O app guarda as últimas que você usou.');
-        notaTaxa.style.marginTop = '-8px';
-        cPag.appendChild(notaTaxa);
-        [campoDescAv, campoTaxaCred, campoTaxaParc].forEach(function (c) {
-          c.addEventListener('input', somar);
-          c.addEventListener('change', somar);
+        // Quais bandeiras este orçamento aceita.
+        var todasBandeiras = taxasGuardadas().bandeiras;
+        var aceitas = {};
+        (rascunho.pagamento.bandeiras || []).forEach(function (b) { aceitas[b.nome] = true; });
+        cPag.appendChild(no('div', 'rotulo', 'Cartões que você aceita'));
+        todasBandeiras.forEach(function (b) {
+          var marca = botao('lembrar', null, function () {
+            aceitas[b.nome] = !aceitas[b.nome];
+            marca.setAttribute('aria-pressed', aceitas[b.nome] ? 'true' : 'false');
+            marca.querySelector('.caixinha').textContent = aceitas[b.nome] ? '✓' : '';
+            somar();
+          });
+          marca.setAttribute('aria-pressed', aceitas[b.nome] ? 'true' : 'false');
+          marca.style.margin = '8px 0 0';
+          marca.appendChild(no('span', 'caixinha', aceitas[b.nome] ? '✓' : ''));
+          marca.appendChild(no('span', null, b.nome +
+            (b.credito[0] ? '  ·  1x ' + numeroBr(b.credito[0]) + '%' : '')));
+          cPag.appendChild(marca);
         });
+
+        var campoRepassar = entradaSelecao([
+          { valor: 'sim', rotulo: 'O cliente paga a taxa', detalhe: 'o preço sobe conforme as parcelas' },
+          { valor: 'nao', rotulo: 'A taxa sai do meu bolso', detalhe: 'o preço é o mesmo em qualquer parcela' }
+        ], rascunho.pagamento.repassar !== false ? 'sim' : 'nao', 'A taxa entra no preço?');
+        var caixaRepassar = campo('A taxa entra no preço?', campoRepassar);
+        caixaRepassar.style.marginTop = '14px';
+        cPag.appendChild(caixaRepassar);
+        campoRepassar.aoMudar = function () { somar(); };
         forma.appendChild(cPag);
 
         // ---- parcelar direto ----
@@ -7163,10 +7459,14 @@
 
           campoVezesD = entradaSelecao(
             Array.apply(null, { length: 24 }).map(function (_, i) {
-              return { valor: String(i + 1), rotulo: (i + 1) + 'x' };
-            }), String(rascunho.direto.vezes || 3), 'Em quantas vezes');
-          cDir.appendChild(campo('Em quantas vezes', campoVezesD));
+              return { valor: String(i + 1), rotulo: i === 0 ? 'só à vista' : 'até ' + (i + 1) + 'x' };
+            }), String(rascunho.direto.vezes || 3), 'Em até quantas vezes');
+          cDir.appendChild(campo('Em até quantas vezes', campoVezesD));
           campoVezesD.aoMudar = function () { somar(); };
+          var notaDir = no('div', 'linha-nota',
+            'No PDF o cliente vê todas as opções, de 1x até esse número.');
+          notaDir.style.marginTop = '-8px';
+          cDir.appendChild(notaDir);
 
           campoModoD = entradaSelecao([
             { valor: 'nenhum', rotulo: 'Sem acréscimo' },
@@ -7221,10 +7521,14 @@
           rascunho.logistica = digitosParaCentavos(campoLog.value);
           rascunho.desconto = digitosParaCentavos(campoDesc.value);
           rascunho.obs = campoObs.value;
-          rascunho.descontoAvista = Math.min(Math.max(comoNumero(campoDescAv.value, 0), 0), 90);
-          rascunho.taxaCredito = Math.min(Math.max(comoNumero(campoTaxaCred.value, 0), 0), 50);
-          rascunho.taxaParcelado = Math.min(Math.max(comoNumero(campoTaxaParc.value, 0), 0), 50);
-          rascunho.parcelasCartao = inteiro(campoVezesCartao.value) || 12;
+          rascunho.pagamento.descontoAvista = Math.min(Math.max(comoNumero(campoDescAv.value, 0), 0), 90);
+          rascunho.pagamento.ateParcelas = inteiro(campoVezesCartao.value) || 12;
+          rascunho.pagamento.repassar = campoRepassar.value === 'sim';
+          // O orçamento guarda as taxas do dia em que foi feito: mexer na
+          // tabela depois não muda um papel que já foi para o cliente.
+          rascunho.pagamento.bandeiras = todasBandeiras
+            .filter(function (b) { return aceitas[b.nome]; })
+            .map(function (b) { return JSON.parse(JSON.stringify(b)); });
           if (rascunho.direto.ligado && campoVezesD) {
             rascunho.direto.entrada = digitosParaCentavos(campoEntrada.value);
             rascunho.direto.vezes = inteiro(campoVezesD.value) || 1;
@@ -7257,23 +7561,36 @@
           }
           resumo.appendChild(linhaDePreco('Dinheiro ou Pix', pr.aVista,
             pr.descAvista ? numeroBr(pr.descAvista) + '% de desconto' : 'sem desconto', true));
-          resumo.appendChild(linhaDePreco('Cartão à vista', pr.cheio,
-            pr.taxaCredito ? 'você recebe ' + emReais(pr.liquidoCredito) +
-              ' depois da taxa de ' + numeroBr(pr.taxaCredito) + '%' : 'preço cheio'));
-          if (pr.vezesCartao > 1) {
-            resumo.appendChild(linhaDePreco('Cartão em ' + pr.vezesCartao + 'x', pr.cheio,
-              pr.vezesCartao + 'x de ' + emReais(pr.porParcelaCartao) +
-              (pr.taxaParcelado ? ' · você recebe ' + emReais(pr.liquidoParcelado) : '')));
-          }
+
+          pr.bandeiras.forEach(function (b) {
+            resumo.appendChild(no('div', 'rotulo', b.nome));
+            if (b.debito) {
+              resumo.appendChild(linhaDePreco('Débito', b.totalDebito,
+                numeroBr(b.debito) + '% de taxa · você recebe ' + emReais(b.liquidoDebito)));
+            }
+            var ultima = b.credito[b.credito.length - 1];
+            resumo.appendChild(linhaDePreco('Crédito 1x', b.credito[0].total,
+              (b.credito[0].taxa ? numeroBr(b.credito[0].taxa) + '% de taxa' : 'sem taxa') +
+              ' · você recebe ' + emReais(b.credito[0].liquido)));
+            if (b.credito.length > 1) {
+              resumo.appendChild(linhaDePreco('Crédito ' + ultima.vezes + 'x', ultima.total,
+                ultima.vezes + 'x de ' + emReais(ultima.parcela) +
+                ' · ' + numeroBr(ultima.taxa) + '% de taxa · você recebe ' + emReais(ultima.liquido)));
+              resumo.appendChild(no('div', 'linha-nota',
+                'No PDF vão as ' + b.credito.length + ' opções, de 1x a ' + ultima.vezes + 'x.'));
+            }
+          });
+
           if (pr.direto) {
             var d = pr.direto;
-            var primeiro = d.itens[0].valor, ultimo = d.itens[d.itens.length - 1].valor;
-            var det = d.vezes + 'x de ' + emReais(primeiro);
-            if (d.vezes > 1 && primeiro !== ultimo) {
-              det = (d.vezes - 1) + 'x de ' + emReais(primeiro) + ' e a última de ' + emReais(ultimo);
-            }
+            var maior = d.maior;
+            var primeiro = maior.itens[0].valor;
+            var det = 'até ' + maior.vezes + 'x de ' + emReais(primeiro);
             if (d.entrada) det = 'entrada de ' + emReais(d.entrada) + ' + ' + det;
-            resumo.appendChild(linhaDePreco('Parcelado direto comigo', d.total, det));
+            resumo.appendChild(no('div', 'rotulo', 'Parcelado direto comigo'));
+            resumo.appendChild(linhaDePreco('Até ' + maior.vezes + 'x', maior.total, det));
+            resumo.appendChild(no('div', 'linha-nota',
+              'No PDF vão as ' + d.planos.length + ' opções, de 1x a ' + maior.vezes + 'x.'));
           }
           var soma = [];
           if (pr.materiais) soma.push('materiais ' + emReais(pr.materiais));
@@ -7291,6 +7608,9 @@
           if (!rascunho.titulo.trim()) { mostrarErro(forma, 'Escreva a descrição do serviço.'); return; }
           var pr = precosDaProposta(rascunho);
           if (!pr.bruto) { mostrarErro(forma, 'Ponha ao menos um valor: material, mão de obra, outros ou logística.'); return; }
+          if (!rascunho.pagamento.bandeiras.length) {
+            mostrarErro(forma, 'Marque ao menos um cartão que você aceita.'); return;
+          }
           rascunho.materiais = rascunho.materiais.filter(function (m) { return m.nome || m.valor; });
           rascunho.outros = rascunho.outros.filter(function (m) { return m.nome || m.valor; });
 
@@ -7310,13 +7630,10 @@
           alvo.logistica = rascunho.logistica;
           alvo.desconto = rascunho.desconto;
           alvo.obs = rascunho.obs.trim();
-          alvo.descontoAvista = rascunho.descontoAvista;
-          alvo.taxaCredito = rascunho.taxaCredito;
-          alvo.taxaParcelado = rascunho.taxaParcelado;
-          alvo.parcelasCartao = rascunho.parcelasCartao;
+          alvo.pagamento = JSON.parse(JSON.stringify(rascunho.pagamento));
           alvo.direto = rascunho.direto.ligado
             ? JSON.parse(JSON.stringify(rascunho.direto)) : { ligado: false };
-          guardarTaxas(alvo);
+          guardarTaxas(rascunho.pagamento);
           salvar();
           fecharFolha();
           setTimeout(function () {
@@ -7444,21 +7761,60 @@
 
     formaDePagamento('Dinheiro ou Pix', pr.aVista,
       pr.descAvista ? numeroBr(pr.descAvista) + '% de desconto sobre ' + emReais(pr.cheio) : '', true);
-    formaDePagamento('Cartão à vista', pr.cheio, '');
-    if (pr.vezesCartao > 1) {
-      formaDePagamento('Cartão parcelado', pr.cheio,
-        'até ' + pr.vezesCartao + 'x de ' + emReais(pr.porParcelaCartao));
+
+    // A tabela de parcelas: o cliente lê a linha do parcelamento que ele
+    // quer. Papel não tem botão, então todas as opções vão escritas.
+    function tabelaDeParcelas(titulo, linhas, colunaMeio) {
+      if (y > f.altura - 120) { f.novaPagina(); y = 70; }
+      f.texto(titulo, MARGEM, y, { tamanho: 10, negrito: true });
+      y += 16;
+      var xVezes = MARGEM + 8;
+      var xMeio = MARGEM + 108;
+      f.retangulo(MARGEM, y - 11, direita - MARGEM, 20, [0.94, 0.94, 0.94]);
+      f.texto('PARCELAS', xVezes, y + 2, { tamanho: 7.5, negrito: true, cor: CINZA });
+      f.texto(colunaMeio, xMeio, y + 2, { tamanho: 7.5, negrito: true, cor: CINZA });
+      f.texto('TOTAL', direita - 8, y + 2,
+              { tamanho: 7.5, negrito: true, alinhar: 'direita', cor: CINZA });
+      y += 24;
+      linhas.forEach(function (l) {
+        if (y > f.altura - 70) {
+          f.novaPagina(); y = 70;
+          f.texto(titulo + ' (continuação)', MARGEM, y, { tamanho: 9, negrito: true, cor: CINZA });
+          y += 20;
+        }
+        f.texto(l.vezes === 1 ? 'à vista' : l.vezes + 'x', xVezes, y, { tamanho: 10 });
+        f.texto(l.meio, xMeio, y, { tamanho: 10 });
+        f.texto(emReais(l.total), direita - 8, y, { tamanho: 10, negrito: true, alinhar: 'direita' });
+        y += 14;
+        f.linha(MARGEM, y - 4, direita, y - 4, 0.3, [0.9, 0.9, 0.9]);
+        y += 4;
+      });
+      y += 10;
     }
-    if (pr.direto) {
-      var dd = pr.direto;
-      var pri = dd.itens[0].valor, ult = dd.itens[dd.itens.length - 1].valor;
-      var det = dd.vezes + 'x de ' + emReais(pri);
-      if (dd.vezes > 1 && pri !== ult) {
-        det = (dd.vezes - 1) + 'x de ' + emReais(pri) + ' e a última de ' + emReais(ult);
+
+    pr.bandeiras.forEach(function (b) {
+      if (b.debito) {
+        formaDePagamento('Débito · ' + b.nome, b.totalDebito, '');
       }
-      if (dd.entrada) det = 'entrada de ' + emReais(dd.entrada) + ' + ' + det;
-      det += ' · primeira em ' + dataBr(dd.itens[0].vencimento);
-      formaDePagamento('Parcelado direto', dd.total, det);
+      tabelaDeParcelas('Crédito · ' + b.nome, b.credito.map(function (l) {
+        return { vezes: l.vezes, total: l.total,
+                 meio: l.vezes === 1 ? emReais(l.total) : l.vezes + 'x de ' + emReais(l.parcela) };
+      }), 'CADA PARCELA');
+    });
+
+    if (pr.direto) {
+      tabelaDeParcelas('Parcelado direto', pr.direto.planos.map(function (pl) {
+        var pri = pl.itens[0].valor, ult = pl.itens[pl.itens.length - 1].valor;
+        var meio = pl.vezes + 'x de ' + emReais(pri);
+        if (pl.vezes > 1 && pri !== ult) meio += ' (última ' + emReais(ult) + ')';
+        if (pl.entrada) meio = emReais(pl.entrada) + ' + ' + meio;
+        return { vezes: pl.vezes, total: pl.total, meio: meio };
+      }), 'COMO FICA');
+      if (pr.direto.planos[0].itens.length) {
+        f.texto('Primeira parcela em ' + dataBr(pr.direto.planos[0].itens[0].vencimento) + '.',
+                MARGEM, y, { tamanho: 8.5, cor: CINZA });
+        y += 16;
+      }
     }
     y += 6;
 
@@ -7517,21 +7873,22 @@
     linhas.push('*Como pagar*');
     linhas.push('• Dinheiro ou Pix: *' + emReais(pr.aVista) + '*' +
       (pr.descAvista ? ' (' + numeroBr(pr.descAvista) + '% de desconto)' : ''));
-    linhas.push('• Cartão à vista: ' + emReais(pr.cheio));
-    if (pr.vezesCartao > 1) {
-      linhas.push('• Cartão em até ' + pr.vezesCartao + 'x de ' + emReais(pr.porParcelaCartao) +
-        ' (' + emReais(pr.cheio) + ')');
-    }
+    pr.bandeiras.forEach(function (b) {
+      if (b.debito) linhas.push('• Débito (' + b.nome + '): ' + emReais(b.totalDebito));
+      var ultima = b.credito[b.credito.length - 1];
+      linhas.push('• Crédito (' + b.nome + '): à vista ' + emReais(b.credito[0].total) +
+        (b.credito.length > 1
+          ? ', até ' + ultima.vezes + 'x de ' + emReais(ultima.parcela)
+          : ''));
+    });
     if (pr.direto) {
-      var d = pr.direto;
-      var pri = d.itens[0].valor, ult = d.itens[d.itens.length - 1].valor;
-      var det = d.vezes + 'x de ' + emReais(pri);
-      if (d.vezes > 1 && pri !== ult) {
-        det = (d.vezes - 1) + 'x de ' + emReais(pri) + ' e a última de ' + emReais(ult);
-      }
-      if (d.entrada) det = 'entrada de ' + emReais(d.entrada) + ' + ' + det;
-      linhas.push('• Parcelado direto comigo: ' + det + ' (' + emReais(d.total) + ')');
+      var maior = pr.direto.maior;
+      var det = 'até ' + maior.vezes + 'x de ' + emReais(maior.itens[0].valor);
+      if (pr.direto.entrada) det = 'entrada de ' + emReais(pr.direto.entrada) + ' + ' + det;
+      linhas.push('• Parcelado direto comigo: ' + det);
     }
+    linhas.push('');
+    linhas.push('No PDF em anexo tem o preço de cada parcelamento, um por um.');
     if (p.validade) { linhas.push(''); linhas.push('Vale até ' + dataBr(p.validade) + '.'); }
     if (p.obs) { linhas.push(''); linhas.push(p.obs); }
     return linhas.join('\n');
@@ -7566,6 +7923,26 @@
       'orçamento escrito.', function () {
         if (cliente && temWhatsapp(cliente)) abrirWhatsapp(cliente, texto);
       });
+  }
+
+  // Abrir o PDF numa aba, sem baixar. Serve para conferir antes de mandar.
+  function verProposta(p) {
+    try {
+      var blob = new Blob([pdfDaProposta(p)], { type: 'application/pdf' });
+      var url = URL.createObjectURL(blob);
+      var aba = window.open(url, '_blank');
+      if (!aba) {
+        // Navegador barrou a aba nova: o jeito que sobra é baixar.
+        URL.revokeObjectURL(url);
+        avisarCaixa('O navegador não deixou abrir',
+          'Ele bloqueou a janela nova. Use "Salvar o PDF no celular" e abra pelo ' +
+          'gerenciador de arquivos.', function () {});
+        return;
+      }
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    } catch (e) {
+      avisarCaixa('Não consegui gerar o PDF', String(e && e.message || e), function () {});
+    }
   }
 
   function salvarProposta(p) {
@@ -7635,27 +8012,40 @@
       }
       precoPronto('Dinheiro ou Pix', pr.aVista,
         pr.descAvista ? numeroBr(pr.descAvista) + '% de desconto' : '', true);
-      precoPronto('Cartão à vista', pr.cheio,
-        pr.taxaCredito ? 'você recebe ' + emReais(pr.liquidoCredito) : '');
-      if (pr.vezesCartao > 1) {
-        precoPronto('Cartão em ' + pr.vezesCartao + 'x', pr.cheio,
-          pr.vezesCartao + 'x de ' + emReais(pr.porParcelaCartao) +
-          (pr.taxaParcelado ? ' · você recebe ' + emReais(pr.liquidoParcelado) : ''));
-      }
-      if (pr.direto) {
-        var dd = pr.direto;
-        var pri = dd.itens[0].valor, ult = dd.itens[dd.itens.length - 1].valor;
-        var det2 = dd.vezes + 'x de ' + emReais(pri);
-        if (dd.vezes > 1 && pri !== ult) {
-          det2 = (dd.vezes - 1) + 'x de ' + emReais(pri) + ' e a última de ' + emReais(ult);
+      pr.bandeiras.forEach(function (b) {
+        var rot = no('div', 'rotulo', b.nome);
+        rot.style.marginTop = '10px';
+        cPag.appendChild(rot);
+        if (b.debito) {
+          precoPronto('Débito', b.totalDebito,
+            numeroBr(b.debito) + '% · você recebe ' + emReais(b.liquidoDebito));
         }
-        if (dd.entrada) det2 = 'entrada de ' + emReais(dd.entrada) + ' + ' + det2;
-        precoPronto('Parcelado direto', dd.total, det2);
+        // Cada parcelamento numa linha: é o que o cliente vê no PDF.
+        b.credito.forEach(function (l) {
+          precoPronto(l.vezes === 1 ? 'Crédito à vista' : 'Crédito ' + l.vezes + 'x', l.total,
+            (l.vezes > 1 ? l.vezes + 'x de ' + emReais(l.parcela) + ' · ' : '') +
+            numeroBr(l.taxa) + '% · você recebe ' + emReais(l.liquido));
+        });
+      });
+      if (pr.direto) {
+        var rotD = no('div', 'rotulo', 'Parcelado direto');
+        rotD.style.marginTop = '10px';
+        cPag.appendChild(rotD);
+        pr.direto.planos.forEach(function (pl) {
+          var pri = pl.itens[0].valor, ult = pl.itens[pl.itens.length - 1].valor;
+          var det2 = pl.vezes + 'x de ' + emReais(pri);
+          if (pl.vezes > 1 && pri !== ult) det2 += ' (última ' + emReais(ult) + ')';
+          if (pl.entrada) det2 = emReais(pl.entrada) + ' + ' + det2;
+          precoPronto(pl.vezes === 1 ? 'À vista' : pl.vezes + 'x', pl.total, det2);
+        });
       }
       forma.appendChild(cPag);
 
       var acoes = no('div', 'acoes');
       acoes.appendChild(botao('btn btn-ouro', 'Enviar no WhatsApp', function () { enviarProposta(p); }));
+      var verPdf = botao('btn btn-fantasma', 'Ver o PDF antes', function () { verProposta(p); });
+      verPdf.style.marginTop = '8px';
+      acoes.appendChild(verPdf);
       var salvar2 = botao('btn btn-fantasma', 'Salvar o PDF no celular', function () { salvarProposta(p); });
       salvar2.style.marginTop = '8px';
       acoes.appendChild(salvar2);
@@ -9886,6 +10276,8 @@
       ['🏦', 'Importar extrato do banco', 'Extrato ou fatura: PDF, Excel, OFX ou CSV', 'arquivoExtrato'],
       ['📋', 'Colar o extrato', 'Quando o celular não deixa abrir o arquivo', abrirColarExtrato],
       ['↺', 'Restaurar backup', 'Substitui os dados atuais', 'arquivoRestaurar'],
+      ['💳', 'Taxas da maquininha', 'Por bandeira e por parcela, para os orçamentos',
+        function () { abrirFolhaTaxas(); }],
       ['⚙', 'Preferências', 'Seu nome e o cálculo da reserva', abrirFolhaPreferencias]
     ].forEach(function (o) {
       var linha = typeof o[3] === 'string' ? rotuloDeArquivo(o[3], 'linha') : botao('linha', null, o[3]);

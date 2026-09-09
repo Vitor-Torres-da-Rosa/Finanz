@@ -51,20 +51,18 @@ await page.waitForTimeout(500);
 console.log('5. preços com só o valor de venda:');
 console.log('   ', (await page.textContent('#folha .cartao:has-text("Como fica para o cliente")')).replace(/\s+/g,' ').slice(0,220));
 
-// formas de pagamento
-await page.locator('#folha .campo:has-text("Desconto no dinheiro") input').fill('10');
-await page.locator('#folha .campo:has-text("Taxa da maquininha à vista") input').fill('3,5');
-await page.locator('#folha .campo:has-text("Taxa da maquininha parcelado") input').fill('12');
+// formas de pagamento: as taxas moram na tela de taxas, aqui só o desconto
+await page.locator('#folha .campo:has-text("Desconto no dinheiro") input').fill('15');
 await page.waitForTimeout(600);
-console.log('6. com taxas:', (await page.textContent('#folha .cartao:has-text("Como fica para o cliente")')).replace(/\s+/g,' ').slice(0,300));
+console.log('6. com 15% de desconto:', (await page.textContent('#folha .cartao:has-text("Como fica para o cliente")')).replace(/\s+/g,' ').slice(0,160));
 await page.screenshot({ path: dir+'/o01-orcamento.png', fullPage: true });
 
 // parcelar direto
 await page.click('#folha .lembrar:has-text("Parcelar direto")'); await page.waitForTimeout(900);
 console.log('7. abriu o parcelado direto?', await page.locator('#folha .cartao:has-text("Parcelado direto")').count());
 await page.locator('#folha .campo:has-text("Entrada") input').fill('200000');
-await page.click('#folha .campo:has-text("Em quantas vezes") .selecao'); await page.waitForTimeout(700);
-await page.click('#escolhaLista .escolha-item:has-text("6x")'); await page.waitForTimeout(800);
+await page.click('#folha .campo:has-text("Em até quantas vezes") .selecao'); await page.waitForTimeout(700);
+await page.click('#escolhaLista .escolha-item:has-text("até 6x")'); await page.waitForTimeout(800);
 console.log('8. preços com direto:', (await page.textContent('#folha .cartao:has-text("Como fica para o cliente")')).replace(/\s+/g,' ').slice(0,340));
 await page.screenshot({ path: dir+'/o02-direto.png', fullPage: true });
 
