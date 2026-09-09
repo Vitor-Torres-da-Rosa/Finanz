@@ -31,3 +31,7 @@ alter table public.perfis add column if not exists propostas jsonb not null defa
 -- Quem assina o orçamento no PDF.
 alter table public.perfis add column if not exists negocio text not null default '';
 alter table public.perfis add column if not exists contato text not null default '';
+
+-- Desconto à vista e taxas da maquininha usados da última vez, para o
+-- próximo orçamento já vir preenchido.
+alter table public.perfis add column if not exists taxas jsonb not null default '{}'::jsonb;
