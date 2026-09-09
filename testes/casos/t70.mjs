@@ -1,0 +1,46 @@
+import { chromium, dir, amostras, ENDERECO } from '../comum.mjs';
+const browser = await chromium.launch();
+const page = await (await browser.newContext({ viewport:{width:390,height:844}, deviceScaleFactor:2 })).newPage();
+page.on('pageerror', e => console.log('PAGEERROR:', e.message));
+const folha = () => page.locator('#folha');
+let arquivos = [amostras+'/lote-a.pdf', amostras+'/lote-b.pdf'];
+page.on('filechooser', async fc => { await fc.setFiles(arquivos); });
+await page.goto(ENDERECO, { waitUntil:'networkidle' });
+await page.waitForTimeout(400);
+await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+await page.reload({ waitUntil:'networkidle' }); await page.waitForTimeout(1800);
+await page.evaluate(() => { document.getElementById('entrada').scrollTop = 99999; });
+await page.click('.btn-dourado:has-text("Criar minha conta")'); await page.waitForTimeout(500);
+const c = page.locator('.ent-campo input');
+await c.nth(0).fill('Vitor'); await c.nth(1).fill('l70'+Date.now() + '-' + process.pid + '@exemplo.com'); await c.nth(3).fill('senha123');
+await page.click('.btn-dourado:has-text("Continuar")'); await page.waitForTimeout(400);
+await page.click('.btn-dourado:has-text("Continuar")'); await page.waitForTimeout(400);
+await page.click('.btn-dourado:has-text("Criar minha conta")'); await page.waitForTimeout(3000);
+
+console.log('1. o campo aceita vários?', await page.evaluate(() => document.getElementById('arquivoExtrato').multiple));
+await page.click('#navegacao button:has-text("Mais")'); await page.waitForTimeout(800);
+await page.click('#telaMais label.linha:has-text("Importar extrato")');
+await page.waitForSelector('#folha input[type=password]', { timeout: 40000 }); await page.waitForTimeout(600);
+console.log('2. pediu senha:', await page.textContent('#folhaTitulo'));
+console.log('   diz qual arquivo:', await page.textContent('#folha .linha-nota').catch(()=>'-'));
+console.log('   tem a caixa "todos"?', await page.locator('#folha .marcar-todos').count());
+console.log('   texto da caixa:', await page.textContent('#folha .marcar-todos').catch(()=>'-'));
+await page.screenshot({ path: dir+'/p01-senha-lote.png' });
+// marca "usar para todos" e digita uma vez só
+await page.click('#folha .marcar-todos .caixinha'); await page.waitForTimeout(400);
+await folha().locator('input[type=password]').fill('12345678');
+await page.click('#folha .btn-ouro:has-text("Abrir")');
+await page.waitForSelector('#folha .cabeca-banco', { timeout: 60000 }); await page.waitForTimeout(1000);
+console.log('3. abriu SEM pedir a segunda senha:', await page.textContent('#folhaTitulo'));
+console.log('   qual arquivo:', (await page.textContent('#folha .linha-nota').catch(()=>'-')));
+console.log('   resumo:', (await page.textContent('#folha .resumo-extrato')).replace(/\s+/g,' '));
+await page.screenshot({ path: dir+'/p02-arquivo1.png' });
+// importa o primeiro -> tem que abrir o segundo sozinho
+await page.click('#folha .selecao'); await page.waitForTimeout(700);
+await page.click('#escolhaLista .escolha-item:has-text("Criar conta")'); await page.waitForTimeout(1400);
+await page.click('#folha .btn-ouro'); await page.waitForTimeout(900);
+await page.click('#dialogoAcoes button:has-text("Sim")'); await page.waitForTimeout(2500);
+console.log('4. depois de importar o 1:', await page.textContent('#folhaTitulo').catch(()=>'nenhuma folha'));
+console.log('   qual arquivo:', (await page.textContent('#folha .linha-nota').catch(()=>'-')));
+await page.screenshot({ path: dir+'/p03-arquivo2.png' });
+await browser.close();
