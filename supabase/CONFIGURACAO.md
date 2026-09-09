@@ -52,9 +52,9 @@ Se alguma linha vier com `rls_ligada = false`, **pare e me avise**. Uma tabela s
 
 **Authentication** → **URL Configuration**:
 
-- **Site URL**: `https://vitor-torres-da-rosa.github.io/caixa/`
+- **Site URL**: `https://vitor-torres-da-rosa.github.io/finanz/`
 - **Redirect URLs**: adicione as duas linhas
-  - `https://vitor-torres-da-rosa.github.io/caixa/`
+  - `https://vitor-torres-da-rosa.github.io/finanz/`
   - `http://localhost:8811/` *(para eu conseguir testar aqui)*
 
 Sem isso o login com Google volta com erro de redirecionamento.
