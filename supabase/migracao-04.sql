@@ -21,3 +21,13 @@ alter table public.lancamentos add column if not exists importacao_id text not n
 -- Registro das importações: arquivo, banco, quantos lançamentos e o saldo
 -- que o extrato mostrava no fim.
 alter table public.perfis add column if not exists importacoes jsonb not null default '[]'::jsonb;
+
+-- Endereço do cliente, para o botão de rota abrir o Maps ou o Waze.
+alter table public.clientes add column if not exists endereco text not null default '';
+
+-- Orçamentos (simular serviço): material, mão de obra, logística e validade.
+alter table public.perfis add column if not exists propostas jsonb not null default '[]'::jsonb;
+
+-- Quem assina o orçamento no PDF.
+alter table public.perfis add column if not exists negocio text not null default '';
+alter table public.perfis add column if not exists contato text not null default '';

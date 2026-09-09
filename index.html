@@ -509,6 +509,13 @@
   .conf-linha:last-child { border-bottom: 0; }
   .conf-cab { color: var(--fraco); font-size: 11px; text-transform: uppercase;
               letter-spacing: .06em; }
+  /* Uma linha de material do orçamento: nome, valor e o X de tirar. */
+  .linha-item-orc { display: grid; grid-template-columns: 1fr 108px 38px; gap: 6px;
+                    align-items: center; margin-top: 8px; }
+  .linha-item-orc .entrada { margin: 0; }
+  .linha-item-orc .btn-mini { padding: 10px 0; }
+  .aba-cliente button { flex: 1 1 0; min-width: 0; font-size: 12.5px; padding: 9px 4px; }
+
   /* As transações de dentro de um grupo repetido, recuadas e presas nele. */
   .grupo-aberto { margin: 0 0 6px 14px; border-left: 2px solid var(--borda);
                   padding-left: 8px; }
@@ -1465,7 +1472,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.4.0';
+  var VERSAO = '4.5.0';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1474,6 +1481,16 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '4.5.0',
+      data: '2026-09-09',
+      itens: [
+        'Cliente tem endereço (opcional). Com ele preenchido aparece um botão de rota ao lado do WhatsApp, que abre o Maps, o Waze ou o app que você escolher.',
+        'Simular serviço: monte o orçamento com materiais, mão de obra, custo logístico, desconto e validade.',
+        'O orçamento vira um PDF pronto, para mandar no WhatsApp do cliente ou salvar no celular e imprimir.',
+        'Fechando o serviço, o orçamento vira registro na ficha do cliente pelo valor total.'
+      ]
+    },
     {
       versao: '4.4.0',
       data: '2026-09-09',
@@ -1985,7 +2002,10 @@
         contaAposentadoria: '',  // conta que já guarda esse dinheiro
         reservaLigada: true,
         reservaConta: '',
-        reservaManual: 0
+        reservaManual: 0,
+        // Quem assina o orçamento. Fica guardado para não digitar de novo.
+        negocio: '',
+        contato: ''
       },
       contas: [],
       lancamentos: [],
@@ -2002,6 +2022,8 @@
       // Cada importação de extrato fica registrada: dá para conferir e
       // desfazer inteira se a leitura saiu errada.
       importacoes: [],
+      // Orçamentos: a simulação de um serviço antes de fechar com o cliente.
+      propostas: [],
       clientes: [],
       servicos: [],
       pagamentos: [],
@@ -2104,6 +2126,43 @@
 
   function temWhatsapp(cliente) { return whatsappDoCliente(cliente).length > 0; }
 
+  function temEndereco(cliente) { return !!(cliente && String(cliente.endereco || '').trim()); }
+
+  // Rota até o cliente. O endereço "geo:" é o jeito do Android perguntar em
+  // qual app abrir — Maps, Waze, o que estiver instalado. Onde isso não
+  // existe (computador, iPhone), o Google Maps no navegador resolve.
+  function abrirRota(cliente) {
+    var endereco = String(cliente && cliente.endereco || '').trim();
+    if (!endereco) { avisar('Este cliente não tem endereço.'); return; }
+    var web = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(endereco);
+
+    // Se o aparelho abrir outro app, esta página some da frente. Só quando
+    // ela continua aqui é que o "geo:" não foi atendido.
+    var saiu = false;
+    function marcarSaida() { saiu = true; }
+    document.addEventListener('visibilitychange', marcarSaida, { once: true });
+    window.addEventListener('pagehide', marcarSaida, { once: true });
+
+    try {
+      window.location.href = 'geo:0,0?q=' + encodeURIComponent(endereco);
+    } catch (e) { saiu = false; }
+
+    setTimeout(function () {
+      document.removeEventListener('visibilitychange', marcarSaida);
+      window.removeEventListener('pagehide', marcarSaida);
+      if (saiu || document.visibilityState === 'hidden') return;
+      window.open(web, '_blank', 'noopener');
+    }, 1200);
+  }
+
+  function botaoDeRota(cliente) {
+    var b = botao('linha-acao', null, function () { abrirRota(cliente); });
+    b.setAttribute('aria-label', 'Rota até ' + cliente.nome);
+    b.style.color = '#5FA8FF';
+    b.appendChild(icone('rota'));
+    return b;
+  }
+
   function abrirWhatsapp(cliente, mensagem, numeroEscolhido) {
     var lista = whatsappDoCliente(cliente);
     if (!lista.length) { avisar('Este cliente não tem um número com WhatsApp.'); return; }
@@ -2173,6 +2232,8 @@
       }
       var infl = Number(bruto.perfil.inflacaoAnual);
       limpo.perfil.inflacaoAnual = isFinite(infl) ? Math.min(Math.max(infl, 0), 40) : 4;
+      limpo.perfil.negocio = texto(bruto.perfil.negocio).slice(0, 60);
+      limpo.perfil.contato = texto(bruto.perfil.contato).slice(0, 40);
       var ret = Number(bruto.perfil.retiradaAnual);
       limpo.perfil.retiradaAnual = isFinite(ret) && ret > 0 ? Math.min(ret, 20) : 4;
       limpo.perfil.metaPatrimonio = Math.max(inteiro(bruto.perfil.metaPatrimonio), 0);
@@ -2233,6 +2294,32 @@
       }).slice(-60);
     }
 
+    if (Array.isArray(bruto.propostas)) {
+      limpo.propostas = bruto.propostas.filter(function (p) {
+        return p && typeof p === 'object' && typeof p.id === 'string';
+      }).map(function (p) {
+        return {
+          id: p.id,
+          clienteId: texto(p.clienteId),
+          numero: Math.max(inteiro(p.numero), 1),
+          titulo: texto(p.titulo).slice(0, 80),
+          data: soData(p.data) || hojeTexto(),
+          validade: soData(p.validade),
+          materiais: (Array.isArray(p.materiais) ? p.materiais : []).filter(function (m) {
+            return m && typeof m === 'object';
+          }).map(function (m) {
+            return { nome: texto(m.nome).slice(0, 60), valor: inteiro(m.valor) };
+          }).slice(0, 60),
+          maoDeObra: inteiro(p.maoDeObra),
+          logistica: inteiro(p.logistica),
+          desconto: inteiro(p.desconto),
+          obs: texto(p.obs).slice(0, 400),
+          servicoId: texto(p.servicoId),
+          criadoEm: inteiro(p.criadoEm) || Date.now()
+        };
+      }).slice(-300);
+    }
+
     if (Array.isArray(bruto.clientes)) {
       limpo.clientes = bruto.clientes.filter(function (c) {
         return c && typeof c === 'object' && typeof c.id === 'string' && texto(c.nome);
@@ -2241,6 +2328,7 @@
           id: c.id,
           nome: texto(c.nome).slice(0, 60),
           telefone: texto(c.telefone).slice(0, 30),
+          endereco: texto(c.endereco).slice(0, 160),
           obs: texto(c.obs).slice(0, 200),
           proximoPagamento: soData(c.proximoPagamento),
           whatsapp: c.whatsapp !== false,
@@ -2965,6 +3053,7 @@
       clientes: estado.clientes.map(function (c) {
         return {
           id: c.id, user_id: uid, nome: c.nome, telefone: c.telefone, obs: c.obs,
+          endereco: c.endereco || '',
           whatsapp: c.whatsapp !== false,
           telefones: telefonesDoCliente(c),
           proximo_pagamento: ouNulo(c.proximoPagamento)
@@ -3023,6 +3112,9 @@
       regras_categoria: estado.regrasCategoria || {},
       pares_ignorados: estado.paresIgnorados || [],
       importacoes: estado.importacoes || [],
+      propostas: estado.propostas || [],
+      negocio: p.negocio || '',
+      contato: p.contato || '',
       orcamento_geral: estado.orcamentos.geral,
       objetivos: p.objetivos || []
     };
@@ -3139,6 +3231,9 @@
       }
       if (Array.isArray(perfil.pares_ignorados)) novo.paresIgnorados = perfil.pares_ignorados;
       if (Array.isArray(perfil.importacoes)) novo.importacoes = perfil.importacoes;
+      if (Array.isArray(perfil.propostas)) novo.propostas = perfil.propostas;
+      novo.perfil.negocio = perfil.negocio || '';
+      novo.perfil.contato = perfil.contato || '';
       novo.perfil.objetivos = perfil.objetivos || [];
       novo.orcamentos.geral = perfil.orcamento_geral || 0;
     }
@@ -3181,6 +3276,7 @@
     novo.clientes = (r.clientes || []).map(function (c) {
       return {
         id: c.id, nome: c.nome, telefone: c.telefone || '', obs: c.obs || '',
+        endereco: c.endereco || '',
         whatsapp: c.whatsapp !== false,
         telefones: Array.isArray(c.telefones) ? c.telefones : [],
         proximoPagamento: c.proximo_pagamento || '',
@@ -3860,6 +3956,7 @@
     mais: 'M12 5v14M5 12h14',
     lupa: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM16.2 16.2 21 21',
     lapis: 'M4.5 19.5h4L19 9a2.12 2.12 0 0 0-3-3L5.5 16.5v3zM14.5 6.5l3 3',
+    rota: 'M21 3 3 10.5l7.5 3 3 7.5z',
     calendario: 'M4.5 6.5h15a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1zM8 3.5v5M16 3.5v5M3.5 11h17',
     alerta: 'M12 8.5v5M12 17h.01M10.3 3.9 2.5 17.4A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3.1L13.7 3.9a2 2 0 0 0-3.4 0z',
     saindo: 'M15 12H3.5M7 8l-4 4 4 4M13 3.5h5.5a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H13',
@@ -6041,6 +6138,8 @@
           linha.appendChild(zap);
         }
 
+        if (temEndereco(c)) linha.appendChild(botaoDeRota(c));
+
         cClientes.appendChild(linha);
       });
     }
@@ -6263,6 +6362,14 @@
 
       pintarNumeros();
 
+      var campoEndereco = entradaTexto(existente ? existente.endereco : '',
+        'Rua, número, bairro, cidade (opcional)', 160);
+      forma.appendChild(campo('Endereço', campoEndereco));
+      var notaEnd = no('div', 'linha-nota',
+        'Com o endereço preenchido aparece um botão de rota ao lado do WhatsApp.');
+      notaEnd.style.marginTop = '-8px';
+      forma.appendChild(notaEnd);
+
       var campoObs = entradaTexto(existente ? existente.obs : '', 'Anotação (opcional)', 200);
       forma.appendChild(campo('Observação', campoObs));
 
@@ -6280,6 +6387,7 @@
           existente.telefones = lista;
           existente.telefone = principal.numero;
           existente.whatsapp = principal.whats;
+          existente.endereco = campoEndereco.value.trim();
           existente.obs = campoObs.value.trim();
         } else {
           estado.clientes.push({
@@ -6287,6 +6395,7 @@
             telefones: lista,
             telefone: principal.numero,
             whatsapp: principal.whats,
+            endereco: campoEndereco.value.trim(),
             obs: campoObs.value.trim(),
             proximoPagamento: '',
             criadoEm: Date.now()
@@ -6364,6 +6473,18 @@
         folha.appendChild(tel);
       }
 
+      if (temEndereco(cliente)) {
+        var end = no('div', 'linha');
+        end.appendChild(icone('rota'));
+        end.style.color = 'var(--suave)';
+        var txtEnd = no('div', 'linha-texto');
+        txtEnd.appendChild(no('div', 'linha-sub', cliente.endereco));
+        end.appendChild(txtEnd);
+        var irLa = botao('btn-mini', 'Traçar rota', function () { abrirRota(cliente); });
+        end.appendChild(irLa);
+        folha.appendChild(end);
+      }
+
       if (atraso.vencidas.length) {
         var faixa = no('div', 'aviso-atraso');
         faixa.style.marginTop = '14px';
@@ -6395,7 +6516,8 @@
       folha.appendChild(cResumo);
 
       var abas = no('div', 'aba-cliente');
-      [['servicos', 'Registros'], ['parcelas', 'Parcelas'], ['pagamentos', 'Pagos']].forEach(function (a) {
+      [['servicos', 'Registros'], ['parcelas', 'Parcelas'], ['pagamentos', 'Pagos'],
+       ['orcamentos', 'Orçamentos']].forEach(function (a) {
         var b = botao(null, a[1], function () {
           if (abaFicha === a[0]) return;
           abaFicha = a[0];
@@ -6473,6 +6595,29 @@
             lista.appendChild(linha);
           });
         }
+      } else if (abaFicha === 'orcamentos') {
+        var propostas = propostasDoCliente(id);
+        if (!propostas.length) {
+          lista.appendChild(estadoVazio('Nenhum orçamento',
+            'Simule o serviço com material, mão de obra e logística, e mande o PDF pronto para o cliente.'));
+        } else {
+          propostas.forEach(function (p) {
+            var tp = totalDaProposta(p);
+            var venceu = propostaVencida(p) && !p.servicoId;
+            var sub = 'Nº ' + ('000' + p.numero).slice(-4) + ' · ' + dataBr(p.data) +
+              (p.servicoId ? ' · fechado' : venceu ? ' · prazo vencido' :
+               p.validade ? ' · vale até ' + dataBr(p.validade) : '');
+            var linha = botao('linha', null, function () { abrirFolhaPropostaPronta(p.id); });
+            juntar(linha,
+              selo(p.servicoId ? '#3DDC84' : venceu ? '#FF6B6B' : '#E9B44C', 'O'),
+              juntar(no('div', 'linha-texto'),
+                no('div', 'linha-titulo', p.titulo),
+                no('div', 'linha-sub', sub)),
+              juntar(no('div', 'linha-fim'),
+                no('div', 'linha-valor num ouro', emReais(tp.total))));
+            lista.appendChild(linha);
+          });
+        }
       } else {
         var pagamentos = pagamentosDoCliente(id);
         if (!pagamentos.length) {
@@ -6495,7 +6640,11 @@
       folha.appendChild(lista);
 
       var acoes = no('div', 'acoes');
-      if (abaFicha === 'servicos') {
+      if (abaFicha === 'orcamentos') {
+        acoes.appendChild(botao('btn btn-ouro', '+ Simular serviço', function () {
+          abrirFolhaProposta(id, null);
+        }));
+      } else if (abaFicha === 'servicos') {
         acoes.appendChild(botao('btn btn-ouro', '+ Nova venda ou serviço', function () { abrirFolhaServico(id, null); }));
       } else if (abaFicha === 'parcelas') {
         acoes.appendChild(botao('btn btn-ouro', '+ Combinar parcelas', function () { abrirFolhaParcelamento(id, ''); }));
@@ -6657,6 +6806,500 @@
       forma.appendChild(acoes);
       folha.appendChild(forma);
       setTimeout(function () { entrada.focus(); }, 270);
+    });
+  }
+
+  // =========================================================================
+  // Orçamento: simular o serviço antes de fechar. Material, mão de obra e
+  // logística de um lado; do outro, um PDF para mandar no WhatsApp ou
+  // guardar no celular e imprimir.
+  // =========================================================================
+
+  function propostasDoCliente(id) {
+    return (estado.propostas || []).filter(function (p) { return p.clienteId === id; })
+      .sort(function (a, b) { return b.criadoEm - a.criadoEm; });
+  }
+
+  function totalDaProposta(p) {
+    var materiais = (p.materiais || []).reduce(function (soma, m) { return soma + inteiro(m.valor); }, 0);
+    var bruto = materiais + inteiro(p.maoDeObra) + inteiro(p.logistica);
+    return { materiais: materiais, bruto: bruto, total: Math.max(bruto - inteiro(p.desconto), 0) };
+  }
+
+  function proximoNumeroDeProposta() {
+    var maior = 0;
+    (estado.propostas || []).forEach(function (p) { if (p.numero > maior) maior = p.numero; });
+    return maior + 1;
+  }
+
+  function propostaVencida(p) {
+    return !!(p.validade && p.validade < hojeTexto());
+  }
+
+  function abrirFolhaProposta(clienteId, propostaId) {
+    var cliente = achar(estado.clientes, clienteId);
+    if (!cliente) return;
+    var existente = propostaId ? achar(estado.propostas || [], propostaId) : null;
+
+    // Rascunho na mão: só vira orçamento de verdade quando salvar.
+    var rascunho = existente ? {
+      titulo: existente.titulo,
+      validade: existente.validade,
+      materiais: existente.materiais.map(function (m) { return { nome: m.nome, valor: m.valor }; }),
+      maoDeObra: existente.maoDeObra, logistica: existente.logistica,
+      desconto: existente.desconto, obs: existente.obs
+    } : {
+      titulo: '', validade: somaDias(hojeTexto(), 15), materiais: [{ nome: '', valor: 0 }],
+      maoDeObra: 0, logistica: 0, desconto: 0, obs: ''
+    };
+
+    montar();
+
+    function montar() {
+      abrirFolha(existente ? 'Editar orçamento' : 'Novo orçamento', function (folha) {
+        var forma = no('div');
+        forma.appendChild(no('p', 'linha-sub', 'Para ' + cliente.nome + '.'));
+
+        var campoTitulo = entradaTexto(rascunho.titulo, 'Ex.: Instalação elétrica da oficina', 80);
+        forma.appendChild(campo('O que é o serviço', campoTitulo));
+        campoTitulo.addEventListener('input', function () { rascunho.titulo = campoTitulo.value; });
+
+        // ---- materiais ----
+        var cMat = cartao('liso');
+        var topoMat = topoDeCartao('Materiais', '+ Item', function () {
+          guardarCampos();
+          rascunho.materiais.push({ nome: '', valor: 0 });
+          montar();
+        });
+        topoMat.style.padding = '14px 14px 0';
+        cMat.appendChild(topoMat);
+        var listaMat = no('div');
+        listaMat.style.padding = '0 14px 14px';
+        cMat.appendChild(listaMat);
+        var camposMat = [];
+
+        function pintarMateriais() {
+          listaMat.textContent = '';
+          camposMat = [];
+          if (!rascunho.materiais.length) {
+            listaMat.appendChild(no('div', 'linha-nota',
+              'Sem material nenhum. Toque em "+ Item" se o serviço usar peças.'));
+            return;
+          }
+          rascunho.materiais.forEach(function (m, i) {
+            var linha = no('div', 'linha-item-orc');
+            var cNome = entradaTexto(m.nome, 'Nome do material', 60);
+            var cValor = entradaValor(m.valor, false);
+            camposMat.push({ nome: cNome, valor: cValor });
+            cValor.addEventListener('input', somar);
+            cValor.addEventListener('change', somar);
+            var tirar = botao('btn-mini', '✕', function () {
+              guardarCampos();
+              rascunho.materiais.splice(i, 1);
+              montar();
+            });
+            tirar.setAttribute('aria-label', 'Tirar este material');
+            juntar(linha, cNome, cValor, tirar);
+            listaMat.appendChild(linha);
+          });
+        }
+        pintarMateriais();
+        forma.appendChild(cMat);
+
+        // ---- os outros custos ----
+        var campoMao = entradaValor(rascunho.maoDeObra, false);
+        forma.appendChild(campo('Mão de obra', campoMao));
+        var campoLog = entradaValor(rascunho.logistica, false);
+        forma.appendChild(campo('Custo logístico', campoLog));
+        var notaLog = no('div', 'linha-nota', 'Deslocamento, combustível, frete do material.');
+        notaLog.style.marginTop = '-8px';
+        forma.appendChild(notaLog);
+        var campoDesc = entradaValor(rascunho.desconto, false);
+        forma.appendChild(campo('Desconto', campoDesc));
+        [campoMao, campoLog, campoDesc].forEach(function (c) {
+          c.addEventListener('input', somar);
+          c.addEventListener('change', somar);
+        });
+
+        // ---- validade ----
+        var campoValidade = entradaSelecao([
+          { valor: '7', rotulo: '7 dias' },
+          { valor: '15', rotulo: '15 dias' },
+          { valor: '30', rotulo: '30 dias' },
+          { valor: 'sem', rotulo: 'Sem prazo' }
+        ], diasDeValidade(), 'Este orçamento vale por');
+        forma.appendChild(campo('Validade', campoValidade));
+        var notaVal = no('div', 'linha-nota');
+        notaVal.style.marginTop = '-8px';
+        forma.appendChild(notaVal);
+        campoValidade.aoMudar = function () { pintarValidade(); };
+
+        function diasDeValidade() {
+          if (!rascunho.validade) return 'sem';
+          var d = Math.round((comoData(rascunho.validade) - comoData(hojeTexto())) / 86400000);
+          if (d <= 7) return '7';
+          if (d <= 15) return '15';
+          return '30';
+        }
+        function pintarValidade() {
+          var v = campoValidade.value;
+          rascunho.validade = v === 'sem' ? '' : somaDias(hojeTexto(), +v);
+          notaVal.textContent = rascunho.validade
+            ? 'Vale até ' + dataBr(rascunho.validade) + '.'
+            : 'Sem data de vencimento no papel.';
+        }
+        pintarValidade();
+
+        var campoObs = entradaTexto(rascunho.obs, 'O que mais o cliente precisa saber (opcional)', 400);
+        forma.appendChild(campo('Observações', campoObs));
+
+        // ---- total, sempre à vista ----
+        var cTotal = cartao();
+        var resumo = no('div');
+        cTotal.appendChild(resumo);
+        forma.appendChild(cTotal);
+
+        function guardarCampos() {
+          rascunho.titulo = campoTitulo.value;
+          rascunho.materiais = camposMat.map(function (c) {
+            return { nome: c.nome.value.trim(), valor: digitosParaCentavos(c.valor.value) };
+          });
+          rascunho.maoDeObra = digitosParaCentavos(campoMao.value);
+          rascunho.logistica = digitosParaCentavos(campoLog.value);
+          rascunho.desconto = digitosParaCentavos(campoDesc.value);
+          rascunho.obs = campoObs.value;
+        }
+
+        function somar() {
+          guardarCampos();
+          var t = totalDaProposta(rascunho);
+          resumo.textContent = '';
+          resumo.appendChild(no('div', 'rotulo', 'Total do orçamento'));
+          resumo.appendChild(no('div', 'valorao num', emReais(t.total)));
+          var detalhe = [];
+          if (t.materiais) detalhe.push('materiais ' + emReais(t.materiais));
+          if (rascunho.maoDeObra) detalhe.push('mão de obra ' + emReais(rascunho.maoDeObra));
+          if (rascunho.logistica) detalhe.push('logística ' + emReais(rascunho.logistica));
+          if (rascunho.desconto) detalhe.push('desconto −' + emReais(rascunho.desconto));
+          resumo.appendChild(no('div', 'linha-nota', detalhe.join(' · ') || 'Nada somado ainda.'));
+        }
+        somar();
+
+        var acoes = no('div', 'acoes');
+        acoes.appendChild(botao('btn btn-ouro', 'Salvar orçamento', function () {
+          guardarCampos();
+          if (!rascunho.titulo.trim()) { mostrarErro(forma, 'Escreva o que é o serviço.'); return; }
+          var t = totalDaProposta(rascunho);
+          if (!t.bruto) { mostrarErro(forma, 'Ponha ao menos um valor: material, mão de obra ou logística.'); return; }
+          rascunho.materiais = rascunho.materiais.filter(function (m) { return m.nome || m.valor; });
+
+          var alvo = existente;
+          if (!alvo) {
+            alvo = { id: novoId(), clienteId: clienteId, numero: proximoNumeroDeProposta(),
+                     data: hojeTexto(), servicoId: '', criadoEm: Date.now() };
+            if (!estado.propostas) estado.propostas = [];
+            estado.propostas.push(alvo);
+          }
+          alvo.titulo = rascunho.titulo.trim();
+          alvo.validade = rascunho.validade;
+          alvo.materiais = rascunho.materiais;
+          alvo.maoDeObra = rascunho.maoDeObra;
+          alvo.logistica = rascunho.logistica;
+          alvo.desconto = rascunho.desconto;
+          alvo.obs = rascunho.obs.trim();
+          salvar();
+          fecharFolha();
+          setTimeout(function () { abrirFolhaPropostaPronta(alvo.id); }, 240);
+        }));
+        forma.appendChild(acoes);
+        folha.appendChild(forma);
+      });
+    }
+  }
+
+  // Desenha o orçamento numa folha A4. É este arquivo que vai para o
+  // cliente, então ele tem que se explicar sozinho.
+  function pdfDaProposta(p) {
+    var cliente = achar(estado.clientes, p.clienteId);
+    var t = totalDaProposta(p);
+    var f = PDF.folha();
+    var MARGEM = 44;
+    var direita = f.largura - MARGEM;
+    var OURO = [0.91, 0.70, 0.30];
+    var CINZA = [0.42, 0.42, 0.42];
+
+    // ---- cabeçalho ----
+    f.retangulo(0, 0, f.largura, 92, [0.03, 0.03, 0.04]);
+    f.texto('FINANZ', MARGEM, 44, { tamanho: 19, negrito: true, cor: OURO });
+    f.texto('Orçamento de serviço', MARGEM, 64, { tamanho: 9, cor: [0.72, 0.72, 0.72] });
+    f.texto('Nº ' + ('000' + p.numero).slice(-4), direita, 44,
+            { tamanho: 13, negrito: true, alinhar: 'direita', cor: [1, 1, 1] });
+    f.texto(dataBr(p.data), direita, 64, { tamanho: 9, alinhar: 'direita', cor: [0.72, 0.72, 0.72] });
+
+    var y = 128;
+    var emitente = String(estado.perfil.negocio || estado.perfil.nome || '').trim();
+    if (emitente) {
+      f.texto('DE', MARGEM, y, { tamanho: 7.5, negrito: true, cor: CINZA });
+      f.texto(emitente, MARGEM, y + 14, { tamanho: 11, negrito: true });
+      var contato = String(estado.perfil.contato || '').trim();
+      if (contato) f.texto(contato, MARGEM, y + 29, { tamanho: 9, cor: CINZA });
+      y += contato ? 48 : 34;
+    }
+
+    f.texto('PARA', MARGEM, y, { tamanho: 7.5, negrito: true, cor: CINZA });
+    f.texto(cliente ? cliente.nome : 'Cliente', MARGEM, y + 14, { tamanho: 11, negrito: true });
+    y += 28;
+    var fones = cliente ? telefonesDoCliente(cliente) : [];
+    if (fones.length) {
+      f.texto(telefoneBonito(fones[0].numero), MARGEM, y, { tamanho: 9, cor: CINZA });
+      y += 13;
+    }
+    if (cliente && cliente.endereco) {
+      f.quebrar(cliente.endereco, 9, false, direita - MARGEM).forEach(function (l) {
+        f.texto(l, MARGEM, y, { tamanho: 9, cor: CINZA });
+        y += 12;
+      });
+    }
+
+    y += 16;
+    f.texto('SERVIÇO', MARGEM, y, { tamanho: 7.5, negrito: true, cor: CINZA });
+    y += 15;
+    f.quebrar(p.titulo, 12, true, direita - MARGEM).forEach(function (l) {
+      f.texto(l, MARGEM, y, { tamanho: 12, negrito: true });
+      y += 16;
+    });
+
+    // ---- a conta, item por item ----
+    y += 14;
+    f.retangulo(MARGEM, y - 12, direita - MARGEM, 22, [0.94, 0.94, 0.94]);
+    f.texto('DESCRIÇÃO', MARGEM + 8, y + 3, { tamanho: 8, negrito: true, cor: CINZA });
+    f.texto('VALOR', direita - 8, y + 3, { tamanho: 8, negrito: true, alinhar: 'direita', cor: CINZA });
+    y += 26;
+
+    function linhaDaConta(rotulo, valor, negrito) {
+      if (y > f.altura - 150) { f.novaPagina(); y = 70; }
+      f.quebrar(rotulo, 10, !!negrito, direita - MARGEM - 110).forEach(function (l, i) {
+        f.texto(l, MARGEM + 8, y, { tamanho: 10, negrito: !!negrito });
+        if (i === 0) {
+          f.texto(emReais(valor), direita - 8, y, { tamanho: 10, negrito: !!negrito, alinhar: 'direita' });
+        }
+        y += 15;
+      });
+      f.linha(MARGEM, y - 5, direita, y - 5, 0.4, [0.86, 0.86, 0.86]);
+      y += 5;
+    }
+
+    if (p.materiais.length) {
+      f.texto('Materiais', MARGEM + 8, y, { tamanho: 8.5, negrito: true, cor: CINZA });
+      y += 14;
+      p.materiais.forEach(function (m) { linhaDaConta(m.nome || 'Material', m.valor); });
+    }
+    if (p.maoDeObra) linhaDaConta('Mão de obra', p.maoDeObra);
+    if (p.logistica) linhaDaConta('Custo logístico (deslocamento e frete)', p.logistica);
+    if (p.desconto) linhaDaConta('Desconto', -p.desconto);
+
+    // ---- total ----
+    y += 8;
+    f.retangulo(MARGEM, y - 12, direita - MARGEM, 34, [0.03, 0.03, 0.04]);
+    f.texto('TOTAL', MARGEM + 8, y + 8, { tamanho: 12, negrito: true, cor: [1, 1, 1] });
+    f.texto(emReais(t.total), direita - 8, y + 8,
+            { tamanho: 14, negrito: true, alinhar: 'direita', cor: OURO });
+    y += 48;
+
+    if (p.validade) {
+      f.texto('Este orçamento vale até ' + dataBr(p.validade) + '.', MARGEM, y,
+              { tamanho: 9.5, negrito: true });
+      y += 18;
+    }
+    if (p.obs) {
+      y += 6;
+      f.texto('OBSERVAÇÕES', MARGEM, y, { tamanho: 7.5, negrito: true, cor: CINZA });
+      y += 14;
+      f.quebrar(p.obs, 9.5, false, direita - MARGEM).forEach(function (l) {
+        f.texto(l, MARGEM, y, { tamanho: 9.5 });
+        y += 13;
+      });
+    }
+
+    f.texto('Documento gerado pelo Finanz. Os valores podem mudar se o serviço mudar.',
+            f.largura / 2, f.altura - 40, { tamanho: 8, alinhar: 'centro', cor: [0.6, 0.6, 0.6] });
+    return f.bytes();
+  }
+
+  function nomeDoArquivoDaProposta(p) {
+    var cliente = achar(estado.clientes, p.clienteId);
+    var quem = (cliente ? cliente.nome : 'cliente').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
+    return 'orcamento-' + ('000' + p.numero).slice(-4) + '-' + (quem || 'cliente') + '.pdf';
+  }
+
+  // O mesmo orçamento escrito em texto, para quando só der para mandar
+  // mensagem — e para acompanhar o arquivo na conversa.
+  function textoDaProposta(p) {
+    var cliente = achar(estado.clientes, p.clienteId);
+    var t = totalDaProposta(p);
+    var primeiro = String(cliente ? cliente.nome : '').split(' ')[0];
+    var linhas = [];
+    linhas.push('Oi' + (primeiro ? ', ' + primeiro : '') + '! Segue o orçamento:');
+    linhas.push('');
+    linhas.push('*' + p.titulo + '*');
+    linhas.push('Orçamento nº ' + ('000' + p.numero).slice(-4) + ' · ' + dataBr(p.data));
+    linhas.push('');
+    p.materiais.forEach(function (m) {
+      linhas.push('• ' + (m.nome || 'Material') + ': ' + emReais(m.valor));
+    });
+    if (p.maoDeObra) linhas.push('• Mão de obra: ' + emReais(p.maoDeObra));
+    if (p.logistica) linhas.push('• Custo logístico: ' + emReais(p.logistica));
+    if (p.desconto) linhas.push('• Desconto: −' + emReais(p.desconto));
+    linhas.push('');
+    linhas.push('*Total: ' + emReais(t.total) + '*');
+    if (p.validade) linhas.push('Vale até ' + dataBr(p.validade) + '.');
+    if (p.obs) { linhas.push(''); linhas.push(p.obs); }
+    return linhas.join('\n');
+  }
+
+  function arquivoDaProposta(p) {
+    return new File([pdfDaProposta(p)], nomeDoArquivoDaProposta(p), { type: 'application/pdf' });
+  }
+
+  // Mandar o PDF pela folha de compartilhar do aparelho: é por ela que o
+  // WhatsApp recebe arquivo. Onde ela não existe, vai o texto e o arquivo
+  // fica salvo para anexar na mão.
+  function enviarProposta(p) {
+    var arquivo;
+    try { arquivo = arquivoDaProposta(p); } catch (e) {
+      avisarCaixa('Não consegui gerar o PDF', String(e && e.message || e), function () {});
+      return;
+    }
+    var texto = textoDaProposta(p);
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+      navigator.share({ files: [arquivo], text: texto, title: 'Orçamento ' + p.titulo })
+        .catch(function () {});
+      return;
+    }
+
+    var cliente = achar(estado.clientes, p.clienteId);
+    baixarArquivo(arquivo.name, pdfDaProposta(p), 'application/pdf');
+    avisarCaixa('PDF salvo no celular',
+      'Este navegador não deixa o app mandar o arquivo direto. Salvei o PDF em Downloads: ' +
+      'na conversa do WhatsApp, use o clipe para anexar. Vou abrir a conversa já com o ' +
+      'orçamento escrito.', function () {
+        if (cliente && temWhatsapp(cliente)) abrirWhatsapp(cliente, texto);
+      });
+  }
+
+  function salvarProposta(p) {
+    try {
+      baixarArquivo(nomeDoArquivoDaProposta(p), pdfDaProposta(p), 'application/pdf');
+      avisar('PDF salvo. Procure em Downloads.');
+    } catch (e) {
+      avisarCaixa('Não consegui gerar o PDF', String(e && e.message || e), function () {});
+    }
+  }
+
+  function abrirFolhaPropostaPronta(id) {
+    var p = achar(estado.propostas || [], id);
+    if (!p) { fecharFolha(); return; }
+    var cliente = achar(estado.clientes, p.clienteId);
+    var t = totalDaProposta(p);
+
+    abrirFolha('Orçamento nº ' + ('000' + p.numero).slice(-4), function (folha) {
+      var forma = no('div');
+
+      var topo = cartao();
+      topo.appendChild(no('div', 'rotulo', p.titulo));
+      topo.appendChild(no('div', 'valorao num', emReais(t.total)));
+      topo.appendChild(no('div', 'linha-nota',
+        (cliente ? cliente.nome + ' · ' : '') + dataBr(p.data) +
+        (p.validade ? ' · vale até ' + dataBr(p.validade) : ' · sem prazo')));
+      if (propostaVencida(p)) {
+        topo.appendChild(no('div', 'linha-nota vermelho', 'O prazo deste orçamento já passou.'));
+      }
+      if (p.servicoId) {
+        topo.appendChild(no('div', 'linha-nota verde', 'Já virou registro na ficha do cliente.'));
+      }
+      forma.appendChild(topo);
+
+      var det = cartao();
+      det.appendChild(no('div', 'rotulo', 'A conta'));
+      var tab = no('div', 'tabela-conf');
+      function linhaDet(rot, val, forte) {
+        var l = no('div', 'conf-linha');
+        l.style.gridTemplateColumns = '1fr auto';
+        l.appendChild(no('span', forte ? 'n' : null, rot));
+        l.appendChild(no('span', 'num' + (forte ? ' n' : ''), emReais(val)));
+        tab.appendChild(l);
+      }
+      p.materiais.forEach(function (m) { linhaDet(m.nome || 'Material', m.valor); });
+      if (p.maoDeObra) linhaDet('Mão de obra', p.maoDeObra);
+      if (p.logistica) linhaDet('Custo logístico', p.logistica);
+      if (p.desconto) linhaDet('Desconto', -p.desconto);
+      linhaDet('Total', t.total, true);
+      det.appendChild(tab);
+      if (p.obs) det.appendChild(no('div', 'linha-nota', p.obs));
+      forma.appendChild(det);
+
+      var acoes = no('div', 'acoes');
+      acoes.appendChild(botao('btn btn-ouro', 'Enviar no WhatsApp', function () { enviarProposta(p); }));
+      var salvar2 = botao('btn btn-fantasma', 'Salvar o PDF no celular', function () { salvarProposta(p); });
+      salvar2.style.marginTop = '8px';
+      acoes.appendChild(salvar2);
+      forma.appendChild(acoes);
+
+      var mais = cartao();
+      mais.appendChild(no('div', 'rotulo', 'Depois de fechar'));
+      if (!p.servicoId) {
+        mais.appendChild(no('div', 'linha-nota',
+          'Fechando com o cliente, o orçamento vira um registro na ficha dele pelo valor total.'));
+        var virar = botao('btn btn-fantasma', 'Cliente aceitou: lançar como registro', function () {
+          perguntar({
+            titulo: 'Lançar como registro?',
+            texto: 'Vai entrar na ficha de ' + (cliente ? cliente.nome : 'cliente') + ' um registro de ' +
+                   emReais(t.total) + ' com o nome "' + p.titulo + '". O orçamento continua guardado.',
+            ok: 'Lançar'
+          }, function () {
+            var servico = {
+              id: novoId(), clienteId: p.clienteId, nome: p.titulo, tipo: 'Serviço',
+              valor: t.total, data: hojeTexto(),
+              obs: 'Do orçamento nº ' + ('000' + p.numero).slice(-4), criadoEm: Date.now()
+            };
+            estado.servicos.push(servico);
+            p.servicoId = servico.id;
+            salvar();
+            fecharFolha();
+            setTimeout(function () { montarFichaCliente(p.clienteId); }, 240);
+            avisar('Registro lançado.');
+          });
+        });
+        virar.style.marginTop = '10px';
+        mais.appendChild(virar);
+      }
+      var editar = botao('btn btn-fantasma', 'Editar este orçamento', function () {
+        fecharFolha();
+        setTimeout(function () { abrirFolhaProposta(p.clienteId, p.id); }, 240);
+      });
+      editar.style.marginTop = '8px';
+      mais.appendChild(editar);
+      var apagar = botao('btn btn-vermelho', 'Excluir o orçamento', function () {
+        perguntar({
+          titulo: 'Excluir este orçamento?',
+          texto: 'O registro que ele gerou, se existir, não é apagado.',
+          ok: 'Excluir', tom: 'perigo'
+        }, function () {
+          estado.propostas = (estado.propostas || []).filter(function (o) { return o.id !== p.id; });
+          salvar();
+          fecharFolha();
+          setTimeout(function () { montarFichaCliente(p.clienteId); }, 240);
+          avisar('Orçamento excluído.');
+        });
+      });
+      apagar.style.marginTop = '8px';
+      mais.appendChild(apagar);
+      forma.appendChild(mais);
+
+      folha.appendChild(forma);
     });
   }
 
@@ -8035,7 +8678,7 @@
       medirDiferenca();
 
       // ---- o que tem dentro ----
-      var num = cartao('liso');
+      var num = cartao();
       num.appendChild(no('div', 'rotulo', 'O que está lançado'));
       var grade = no('div', 'grade-conf');
       [['Lançamentos', String(r.quantos)],
@@ -8059,7 +8702,7 @@
       // ---- mês a mês ----
       var meses = saldoPorMes(id);
       if (meses.length) {
-        var mm = cartao('liso');
+        var mm = cartao();
         mm.appendChild(no('div', 'rotulo', 'Mês a mês'));
         mm.appendChild(no('div', 'linha-nota',
           'O saldo de cada linha é como a conta fechou naquele mês. Compare com o extrato ' +
@@ -8113,7 +8756,7 @@
       // ---- possíveis repetidos ----
       var grupos = repetidosDaConta(id);
       if (grupos.length) {
-        var rep = cartao('liso');
+        var rep = cartao();
         rep.appendChild(no('div', 'rotulo', 'Possíveis repetidos'));
         rep.appendChild(no('div', 'linha-nota',
           grupos.length + ' grupo(s) com data, valor e descrição iguais. Pode ser importação ' +
@@ -8198,7 +8841,7 @@
       // ---- importações desta conta ----
       var minhas = (estado.importacoes || []).filter(function (i) { return i.contaId === id; })
         .sort(function (a, b) { return b.quando - a.quando; });
-      var imp = cartao('liso');
+      var imp = cartao();
       imp.appendChild(no('div', 'rotulo', 'Extratos importados'));
       if (!minhas.length) {
         imp.appendChild(no('div', 'linha-nota',
@@ -8234,7 +8877,7 @@
       // Extrato importado errado antes de existir o registro de importações
       // só sai assim. É perigoso, então fica no fim e pergunta duas vezes.
       if (r.quantos) {
-        var zerar = cartao('liso');
+        var zerar = cartao();
         zerar.appendChild(no('div', 'rotulo', 'Recomeçar esta conta'));
         zerar.appendChild(no('div', 'linha-nota',
           'Apaga os ' + r.quantos + ' lançamento(s) desta conta e devolve o saldo inicial a zero. ' +
@@ -10379,6 +11022,18 @@
       var campoNome = entradaTexto(estado.perfil.nome, 'Como quer ser chamado', 40);
       forma.appendChild(campo('Seu nome', campoNome));
 
+      // Assinatura do orçamento em PDF. Sem isso o papel sai só com o
+      // primeiro nome, o que não passa muita confiança para o cliente.
+      var campoNegocio = entradaTexto(estado.perfil.negocio || '',
+        'Ex.: Vitor Torres Elétrica (opcional)', 60);
+      forma.appendChild(campo('Nome do seu negócio', campoNegocio));
+      var campoContato = entradaTexto(estado.perfil.contato || '',
+        'Telefone ou e-mail que vai no orçamento (opcional)', 40);
+      forma.appendChild(campo('Contato no orçamento', campoContato));
+      var notaOrc = no('div', 'linha-nota', 'Estes dois aparecem no topo do PDF do orçamento.');
+      notaOrc.style.marginTop = '-8px';
+      forma.appendChild(notaOrc);
+
       var reserva = estado.perfil.reservaLigada !== false;
       var marcaReserva = botao('lembrar', null, function () {
         reserva = !reserva;
@@ -10396,6 +11051,8 @@
       var acoes = no('div', 'acoes');
       acoes.appendChild(botao('btn btn-ouro', 'Salvar', function () {
         estado.perfil.nome = campoNome.value.trim().slice(0, 40);
+        estado.perfil.negocio = campoNegocio.value.trim().slice(0, 60);
+        estado.perfil.contato = campoContato.value.trim().slice(0, 40);
         estado.perfil.reservaLigada = reserva;
         salvar();
         fecharFolha();
@@ -10739,6 +11396,207 @@
   }
 
   function carimbo() { return hojeTexto().replace(/-/g, ''); }
+
+  // =========================================================================
+  // Escritor de PDF. O app já sabia ler PDF; agora também escreve, para o
+  // orçamento sair num arquivo que dá para mandar e imprimir. Uma página A4,
+  // fontes Helvetica que todo leitor de PDF já tem por dentro, nada de fora.
+  // =========================================================================
+  var PDF = (function () {
+    // Larguras da Helvetica, em milésimos do tamanho da fonte. Sem elas não
+    // dá para alinhar valor à direita nem quebrar linha na medida certa.
+    var LARG_NORMAL = {};
+    var LARG_NEGRITO = {};
+
+    function encher(alvo, texto) {
+      // "código:largura" separados por espaço, faixas com "-".
+      texto.split(' ').forEach(function (par) {
+        var p = par.split(':');
+        var larg = +p[1];
+        var faixa = p[0].split('-');
+        var de = +faixa[0], ate = faixa.length > 1 ? +faixa[1] : de;
+        for (var c = de; c <= ate; c++) alvo[c] = larg;
+      });
+    }
+
+    encher(LARG_NORMAL,
+      '32:278 33:278 34:355 35:556 36:556 37:889 38:667 39:191 40:333 41:333 42:389 43:584 ' +
+      '44:278 45:333 46:278 47:278 48-57:556 58:278 59:278 60:584 61:584 62:584 63:556 64:1015 ' +
+      '65:667 66:667 67:722 68:722 69:667 70:611 71:778 72:722 73:278 74:500 75:667 76:556 ' +
+      '77:833 78:722 79:778 80:667 81:778 82:722 83:667 84:611 85:722 86:667 87:944 88:667 ' +
+      '89:667 90:611 91:278 92:278 93:278 94:469 95:556 96:333 97:556 98:556 99:500 100:556 ' +
+      '101:556 102:278 103:556 104:556 105:222 106:222 107:500 108:222 109:833 110:556 111:556 ' +
+      '112:556 113:556 114:333 115:500 116:278 117:556 118:500 119:722 120:500 121:500 122:500 ' +
+      '123:334 124:260 125:334 126:584');
+    encher(LARG_NEGRITO,
+      '32:278 33:333 34:474 35:556 36:556 37:889 38:722 39:238 40:333 41:333 42:389 43:584 ' +
+      '44:278 45:333 46:278 47:278 48-57:556 58:333 59:333 60:584 61:584 62:584 63:611 64:975 ' +
+      '65:722 66:722 67:722 68:722 69:667 70:611 71:778 72:722 73:278 74:556 75:722 76:611 ' +
+      '77:833 78:722 79:778 80:667 81:778 82:722 83:667 84:611 85:722 86:667 87:944 88:667 ' +
+      '89:667 90:611 91:333 92:278 93:333 94:584 95:556 96:333 97:556 98:611 99:556 100:611 ' +
+      '101:556 102:333 103:611 104:611 105:278 106:278 107:556 108:278 109:889 110:611 111:611 ' +
+      '112:611 113:611 114:389 115:556 116:333 117:611 118:556 119:778 120:556 121:556 122:500 ' +
+      '123:389 124:280 125:389 126:584');
+
+    // Letra com acento tem a largura da letra sem acento na Helvetica.
+    var SEM_ACENTO = {
+      192:65,193:65,194:65,195:65,196:65,197:65,198:65,199:67,200:69,201:69,202:69,203:69,
+      204:73,205:73,206:73,207:73,209:78,210:79,211:79,212:79,213:79,214:79,216:79,217:85,
+      218:85,219:85,220:85,221:89,224:97,225:97,226:97,227:97,228:97,229:97,230:97,231:99,
+      232:101,233:101,234:101,235:101,236:105,237:105,238:105,239:105,241:110,242:111,243:111,
+      244:111,245:111,246:111,248:111,249:117,250:117,251:117,252:117,253:121,255:121,
+      170:97,186:111,171:34,187:34,176:32,183:46
+    };
+
+    function largura(codigo, negrito) {
+      var tab = negrito ? LARG_NEGRITO : LARG_NORMAL;
+      if (tab[codigo] != null) return tab[codigo];
+      var base = SEM_ACENTO[codigo];
+      if (base != null && tab[base] != null) return tab[base];
+      return negrito ? 556 : 500;
+    }
+
+    function medir(texto, tamanho, negrito) {
+      var s = String(texto == null ? '' : texto);
+      var total = 0;
+      for (var i = 0; i < s.length; i++) total += largura(s.charCodeAt(i), negrito);
+      return total * tamanho / 1000;
+    }
+
+    // WinAnsi cobre o português. O que não couber vira uma letra parecida ou
+    // uma interrogação, em vez de estragar o arquivo.
+    var TROCA = { 8211: 45, 8212: 45, 8216: 39, 8217: 39, 8220: 34, 8221: 34, 8230: 46, 8364: 128 };
+
+    function paraWinAnsi(texto) {
+      var s = String(texto == null ? '' : texto);
+      var fora = '';
+      for (var i = 0; i < s.length; i++) {
+        var c = s.charCodeAt(i);
+        if (TROCA[c] != null) c = TROCA[c];
+        if (c > 255) c = 63;
+        fora += String.fromCharCode(c);
+      }
+      return fora;
+    }
+
+    function escapar(texto) {
+      return paraWinAnsi(texto).replace(/([\\()])/g, '\\$1');
+    }
+
+    // Quebra o texto na largura pedida, respeitando os espaços.
+    function quebrar(texto, tamanho, negrito, limite) {
+      var palavras = String(texto == null ? '' : texto).split(/\s+/).filter(Boolean);
+      var linhas = [], atual = '';
+      palavras.forEach(function (p) {
+        var teste = atual ? atual + ' ' + p : p;
+        if (medir(teste, tamanho, negrito) <= limite || !atual) atual = teste;
+        else { linhas.push(atual); atual = p; }
+      });
+      if (atual) linhas.push(atual);
+      return linhas;
+    }
+
+    // Uma folha em construção. Coordenadas com o zero em cima, à esquerda,
+    // que é como se pensa numa página; a conversão para o PDF fica aqui.
+    function folha(opcoes) {
+      var o = opcoes || {};
+      var larguraPag = o.largura || 595.28;   // A4 em pontos
+      var alturaPag = o.altura || 841.89;
+      var paginas = [];
+      var atual = [];
+      paginas.push(atual);
+
+      function novaPagina() { atual = []; paginas.push(atual); return atual; }
+
+      function texto(t, x, y, op) {
+        var e = op || {};
+        var tam = e.tamanho || 10;
+        var negrito = !!e.negrito;
+        var s = escapar(t);
+        var px = x;
+        if (e.alinhar === 'direita') px = x - medir(t, tam, negrito);
+        else if (e.alinhar === 'centro') px = x - medir(t, tam, negrito) / 2;
+        var cor = e.cor || [0, 0, 0];
+        atual.push(cor[0] + ' ' + cor[1] + ' ' + cor[2] + ' rg');
+        atual.push('BT /' + (negrito ? 'FB' : 'FN') + ' ' + tam + ' Tf ' +
+                   px.toFixed(2) + ' ' + (alturaPag - y).toFixed(2) + ' Td (' + s + ') Tj ET');
+      }
+
+      function retangulo(x, y, larg, alt, cor) {
+        var c = cor || [0, 0, 0];
+        atual.push(c[0] + ' ' + c[1] + ' ' + c[2] + ' rg');
+        atual.push(x.toFixed(2) + ' ' + (alturaPag - y - alt).toFixed(2) + ' ' +
+                   larg.toFixed(2) + ' ' + alt.toFixed(2) + ' re f');
+      }
+
+      function linha(x1, y1, x2, y2, grossura, cor) {
+        var c = cor || [0, 0, 0];
+        atual.push(c[0] + ' ' + c[1] + ' ' + c[2] + ' RG ' + (grossura || 0.6) + ' w');
+        atual.push(x1.toFixed(2) + ' ' + (alturaPag - y1).toFixed(2) + ' m ' +
+                   x2.toFixed(2) + ' ' + (alturaPag - y2).toFixed(2) + ' l S');
+      }
+
+      function bytes() {
+        var objetos = [];
+        function juntarObj(corpo) { objetos.push(corpo); return objetos.length; }
+
+        var idFonteN = null, idFonteB = null, idPaginas = null;
+        // Reserva as posições na ordem em que serão escritas.
+        var idCatalogo = juntarObj(null);
+        idPaginas = juntarObj(null);
+        idFonteN = juntarObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica ' +
+                             '/Encoding /WinAnsiEncoding >>');
+        idFonteB = juntarObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold ' +
+                             '/Encoding /WinAnsiEncoding >>');
+
+        var idsPagina = [];
+        paginas.forEach(function (linhas) {
+          var fluxo = linhas.join('\n');
+          var idFluxo = juntarObj('<< /Length ' + fluxo.length + ' >>\nstream\n' + fluxo + '\nendstream');
+          var idPag = juntarObj('<< /Type /Page /Parent ' + idPaginas + ' 0 R /MediaBox [0 0 ' +
+            larguraPag.toFixed(2) + ' ' + alturaPag.toFixed(2) + '] /Resources << /Font << /FN ' +
+            idFonteN + ' 0 R /FB ' + idFonteB + ' 0 R >> >> /Contents ' + idFluxo + ' 0 R >>');
+          idsPagina.push(idPag);
+        });
+
+        objetos[idCatalogo - 1] = '<< /Type /Catalog /Pages ' + idPaginas + ' 0 R >>';
+        objetos[idPaginas - 1] = '<< /Type /Pages /Count ' + idsPagina.length + ' /Kids [' +
+          idsPagina.map(function (i) { return i + ' 0 R'; }).join(' ') + '] >>';
+
+        var partes = ['%PDF-1.4\n'];
+        var posicoes = [];
+        var conta = 9;  // tamanho do cabeçalho
+        objetos.forEach(function (corpo, i) {
+          posicoes.push(conta);
+          var texto = (i + 1) + ' 0 obj\n' + corpo + '\nendobj\n';
+          partes.push(texto);
+          conta += texto.length;
+        });
+        var inicioXref = conta;
+        var xref = 'xref\n0 ' + (objetos.length + 1) + '\n0000000000 65535 f \n';
+        posicoes.forEach(function (p) {
+          xref += ('0000000000' + p).slice(-10) + ' 00000 n \n';
+        });
+        partes.push(xref);
+        partes.push('trailer\n<< /Size ' + (objetos.length + 1) + ' /Root ' + idCatalogo +
+                    ' 0 R >>\nstartxref\n' + inicioXref + '\n%%EOF\n');
+
+        var cru = partes.join('');
+        var saida = new Uint8Array(cru.length);
+        for (var i = 0; i < cru.length; i++) saida[i] = cru.charCodeAt(i) & 0xff;
+        return saida;
+      }
+
+      return {
+        largura: larguraPag, altura: alturaPag,
+        texto: texto, retangulo: retangulo, linha: linha,
+        novaPagina: novaPagina, bytes: bytes,
+        medir: medir, quebrar: quebrar
+      };
+    }
+
+    return { folha: folha, medir: medir, quebrar: quebrar };
+  })();
 
   // =========================================================================
   // Leitor de extrato e de fatura. Abre PDF (inclusive com senha), planilha
@@ -12135,7 +12993,7 @@
                   setembro:9, outubro:10, novembro:11, dezembro:12 };
 
     function semAcento(t) {
-      return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     }
 
     function doisDigitos(n) { return (n < 10 ? '0' : '') + n; }
