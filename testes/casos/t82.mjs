@@ -31,7 +31,7 @@ console.log('2. achou:', await page.textContent('#folha .linha-nota'));
 await page.click('#folha .btn-ouro:has-text("Usar estas taxas")'); await page.waitForTimeout(1200);
 const taxas = await page.$$eval('#folha .grade-taxas .entrada', ns=>ns.slice(0,12).map(n=>n.value));
 console.log('3. taxas na primeira bandeira:', taxas.join(' '));
-console.log('4. débito:', await page.locator('#folha .campo:has-text("Débito") input').inputValue());
+console.log('4. débito:', await page.locator('#folha .campo:has-text("Débito") input').first().inputValue());
 await page.screenshot({ path: dir+'/p01-taxas.png', fullPage: true });
 await page.click('#folha .btn-ouro:has-text("Salvar as taxas")'); await page.waitForTimeout(1500);
 
@@ -54,6 +54,12 @@ await page.waitForTimeout(700);
 const vivo = (await page.textContent('#folha .cartao:has-text("Como fica para o cliente")')).replace(/\s+/g,' ');
 console.log('6. resumo ao vivo:', vivo.slice(0,300));
 console.log('7. 12x aparece?', /Cr[ée]dito 12x/.test(vivo), '| desconto à vista aplicado?', /10% de desconto/.test(vivo));
+const grelha = await page.$$eval('#folha .cartao-bandeira', ns => ns.map(n => ({
+  nome: n.querySelector('.bandeira-nome').textContent,
+  linhas: [...n.querySelectorAll('.bandeira-linha')].map(l => l.textContent).slice(0, 3),
+  quantas: n.querySelectorAll('.bandeira-linha').length
+})));
+console.log('7b. bandeiras na tela:', JSON.stringify(grelha));
 await page.screenshot({ path: dir+'/p02-orcamento.png', fullPage: true });
 await page.click('#folha .btn-ouro:has-text("Salvar orçamento")'); await page.waitForTimeout(1600);
 console.log('8. pronto:', await page.textContent('#folhaTitulo'));

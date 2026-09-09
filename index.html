@@ -509,6 +509,19 @@
   .conf-linha:last-child { border-bottom: 0; }
   .conf-cab { color: var(--fraco); font-size: 11px; text-transform: uppercase;
               letter-spacing: .06em; }
+  /* As bandeiras lado a lado, cada uma com a sua tabela de taxas — a mesma
+     leitura do aplicativo da maquininha. */
+  .grelha-bandeiras { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .cartao-bandeira { border: 1px solid var(--borda); border-radius: 12px; padding: 10px;
+                     opacity: .5; transition: opacity .15s; }
+  .cartao-bandeira.aceito { opacity: 1; }
+  .bandeira-topo { width: 100%; gap: 7px; align-items: flex-start; }
+  .bandeira-nome { font-size: 12.5px; color: var(--texto); text-align: left; line-height: 1.25; }
+  .bandeira-taxas { margin-top: 8px; }
+  .bandeira-linha { display: flex; justify-content: space-between; gap: 6px;
+                    font-size: 11.5px; color: var(--suave); padding: 2.5px 0; }
+  .bandeira-linha .num { color: var(--texto); }
+
   /* A tabela de taxas: 1x, 2x, 3x... lado a lado, três por linha. */
   .grade-taxas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
   .taxa-cel { display: flex; align-items: center; gap: 6px; }
@@ -1488,7 +1501,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.7.0';
+  var VERSAO = '4.7.1';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1497,6 +1510,15 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '4.7.1',
+      data: '2026-09-10',
+      itens: [
+        'No orçamento, cada cartão mostra a tabela inteira de taxas lado a lado, do jeito que o aplicativo da maquininha mostra.',
+        'No PDF os parcelamentos saem em duas colunas, um quadro ao lado do outro, e o papel encolheu.',
+        'O PDF ganhou faixas separando o serviço das formas de pagamento.'
+      ]
+    },
     {
       versao: '4.7.0',
       data: '2026-09-10',
@@ -1966,6 +1988,14 @@
   function pct(parte, total) { return total > 0 ? (parte / total) * 100 : 0; }
 
   // Número solto na escrita daqui: vírgula no lugar do ponto, sem zero à toa.
+  // Percentual com as duas casas, do jeito que a maquininha escreve: 12,40%
+  // e não 12,4%, para bater olho a olho com o aplicativo dela.
+  function porcentoBr(v) {
+    var x = Number(v);
+    if (!isFinite(x)) return '0%';
+    return (Math.round(x * 100) / 100).toFixed(2).replace('.', ',') + '%';
+  }
+
   function numeroBr(v) {
     var x = Number(v);
     if (!isFinite(x)) return '0';
@@ -2269,7 +2299,7 @@
       descontoAvista: Math.min(Math.max(isFinite(desc) ? desc : 10, 0), 90),
       repassar: !(t && t.repassar === false),
       ateParcelas: Math.min(Math.max(inteiro(t && t.ateParcelas) || 12, 1), 18),
-      bandeiras: (b.length ? b : [{ nome: 'Cartões' }]).map(limparBandeira)
+      bandeiras: b.map(limparBandeira)
     };
   }
 
@@ -2290,7 +2320,8 @@
       }
       var infl = Number(bruto.perfil.inflacaoAnual);
       limpo.perfil.inflacaoAnual = isFinite(infl) ? Math.min(Math.max(infl, 0), 40) : 4;
-      if (bruto.perfil.taxas && typeof bruto.perfil.taxas === 'object') {
+      if (bruto.perfil.taxas && Array.isArray(bruto.perfil.taxas.bandeiras) &&
+          bruto.perfil.taxas.bandeiras.length) {
         limpo.perfil.taxas = limparPagamento(bruto.perfil.taxas);
       }
       limpo.perfil.negocio = texto(bruto.perfil.negocio).slice(0, 60);
@@ -2356,6 +2387,10 @@
     }
 
     if (Array.isArray(bruto.propostas)) {
+      var comBandeira = function (pag) {
+        if (!pag.bandeiras.length) pag.bandeiras = [limparBandeira({ nome: 'Cartões' })];
+        return pag;
+      };
       var limparDireto = function (d) {
         if (!d || typeof d !== 'object' || !d.ligado) return { ligado: false };
         return {
@@ -2391,7 +2426,7 @@
           maoDeObra: inteiro(p.maoDeObra),
           logistica: inteiro(p.logistica),
           desconto: inteiro(p.desconto),
-          pagamento: limparPagamento(p.pagamento || {
+          pagamento: comBandeira(limparPagamento(p.pagamento || {
             // Orçamento das versões antigas: uma taxa só para tudo.
             descontoAvista: p.descontoAvista == null ? 0 : p.descontoAvista, repassar: false,
             ateParcelas: p.parcelasCartao,
@@ -2399,7 +2434,7 @@
               credito: Array.apply(null, { length: 24 }).map(function (_, i) {
                 return i === 0 ? (Number(p.taxaCredito) || 0) : (Number(p.taxaParcelado) || 0);
               }) }]
-          }),
+          })),
           direto: limparDireto(p.direto),
           obs: texto(p.obs).slice(0, 400),
           servicoId: texto(p.servicoId),
@@ -3203,7 +3238,7 @@
       propostas: estado.propostas || [],
       negocio: p.negocio || '',
       contato: p.contato || '',
-      taxas: p.taxas || {},
+      taxas: p.taxas && p.taxas.bandeiras ? p.taxas : null,
       orcamento_geral: estado.orcamentos.geral,
       objetivos: p.objetivos || []
     };
@@ -3321,7 +3356,9 @@
       if (Array.isArray(perfil.pares_ignorados)) novo.paresIgnorados = perfil.pares_ignorados;
       if (Array.isArray(perfil.importacoes)) novo.importacoes = perfil.importacoes;
       if (Array.isArray(perfil.propostas)) novo.propostas = perfil.propostas;
-      if (perfil.taxas && typeof perfil.taxas === 'object') novo.perfil.taxas = perfil.taxas;
+      if (perfil.taxas && Array.isArray(perfil.taxas.bandeiras) && perfil.taxas.bandeiras.length) {
+        novo.perfil.taxas = perfil.taxas;
+      }
       novo.perfil.negocio = perfil.negocio || '';
       novo.perfil.contato = perfil.contato || '';
       novo.perfil.objetivos = perfil.objetivos || [];
@@ -7410,20 +7447,37 @@
         var aceitas = {};
         (rascunho.pagamento.bandeiras || []).forEach(function (b) { aceitas[b.nome] = true; });
         cPag.appendChild(no('div', 'rotulo', 'Cartões que você aceita'));
+        // Duas colunas com a tabela inteira de cada bandeira, do jeito que o
+        // aplicativo da maquininha mostra: dá para conferir sem sair daqui.
+        var grelha = no('div', 'grelha-bandeiras');
         todasBandeiras.forEach(function (b) {
-          var marca = botao('lembrar', null, function () {
+          var cartaoB = no('div', 'cartao-bandeira' + (aceitas[b.nome] ? ' aceito' : ''));
+          var marca = botao('lembrar bandeira-topo', null, function () {
             aceitas[b.nome] = !aceitas[b.nome];
             marca.setAttribute('aria-pressed', aceitas[b.nome] ? 'true' : 'false');
             marca.querySelector('.caixinha').textContent = aceitas[b.nome] ? '✓' : '';
+            cartaoB.className = 'cartao-bandeira' + (aceitas[b.nome] ? ' aceito' : '');
             somar();
           });
           marca.setAttribute('aria-pressed', aceitas[b.nome] ? 'true' : 'false');
-          marca.style.margin = '8px 0 0';
           marca.appendChild(no('span', 'caixinha', aceitas[b.nome] ? '✓' : ''));
-          marca.appendChild(no('span', null, b.nome +
-            (b.credito[0] ? '  ·  1x ' + numeroBr(b.credito[0]) + '%' : '')));
-          cPag.appendChild(marca);
+          marca.appendChild(no('span', 'bandeira-nome', b.nome));
+          cartaoB.appendChild(marca);
+
+          var lista = no('div', 'bandeira-taxas');
+          function linhaTaxa(rot, valor) {
+            var l = no('div', 'bandeira-linha');
+            l.appendChild(no('span', null, rot));
+            l.appendChild(no('span', 'num', porcentoBr(valor)));
+            lista.appendChild(l);
+          }
+          if (b.debito) linhaTaxa('Débito', b.debito);
+          var ateAqui = inteiro(campoVezesCartao.value) || 12;
+          for (var n = 1; n <= ateAqui; n++) linhaTaxa(n + 'x', b.credito[n - 1] || 0);
+          cartaoB.appendChild(lista);
+          grelha.appendChild(cartaoB);
         });
+        cPag.appendChild(grelha);
 
         var campoRepassar = entradaSelecao([
           { valor: 'sim', rotulo: 'O cliente paga a taxa', detalhe: 'o preço sobe conforme as parcelas' },
@@ -7691,17 +7745,24 @@
       });
     }
 
-    y += 16;
-    f.texto(String(p.tipo || 'SERVIÇO').toUpperCase(), MARGEM, y,
-            { tamanho: 7.5, negrito: true, cor: CINZA });
-    y += 15;
-    f.quebrar(p.titulo, 12, true, direita - MARGEM).forEach(function (l) {
-      f.texto(l, MARGEM, y, { tamanho: 12, negrito: true });
-      y += 16;
+    // Uma faixa por seção: o cliente vê de longe onde acaba o serviço e
+    // onde começa a conversa de preço.
+    function faixaDeSecao(titulo, folga) {
+      y += folga == null ? 26 : folga;
+      if (y > f.altura - 130) { f.novaPagina(); y = 70; }
+      f.linha(MARGEM, y - 12, direita, y - 12, 1.1, [0.03, 0.03, 0.04]);
+      f.texto(titulo, MARGEM, y + 4, { tamanho: 10.5, negrito: true });
+      y += 24;
+    }
+
+    faixaDeSecao(String(p.tipo || 'Serviço').toUpperCase() === 'VENDA' ? 'O QUE ESTÁ SENDO VENDIDO' : 'O SERVIÇO', 18);
+    f.quebrar(p.titulo, 12.5, true, direita - MARGEM).forEach(function (l) {
+      f.texto(l, MARGEM, y, { tamanho: 12.5, negrito: true });
+      y += 17;
     });
 
     // ---- a conta, item por item ----
-    y += 14;
+    y += 12;
     f.retangulo(MARGEM, y - 12, direita - MARGEM, 22, [0.94, 0.94, 0.94]);
     f.texto('DESCRIÇÃO', MARGEM + 8, y + 3, { tamanho: 8, negrito: true, cor: CINZA });
     f.texto('VALOR', direita - 8, y + 3, { tamanho: 8, negrito: true, alinhar: 'direita', cor: CINZA });
@@ -7740,9 +7801,7 @@
 
     // ---- como pagar ----
     var pr = precosDaProposta(p);
-    if (y > f.altura - 230) { f.novaPagina(); y = 70; }
-    f.texto('COMO PAGAR', MARGEM, y, { tamanho: 7.5, negrito: true, cor: CINZA });
-    y += 18;
+    faixaDeSecao('COMO PAGAR');
 
     function formaDePagamento(rotulo, valor, detalhe, forte) {
       if (y > f.altura - 110) { f.novaPagina(); y = 70; }
@@ -7761,62 +7820,107 @@
 
     formaDePagamento('Dinheiro ou Pix', pr.aVista,
       pr.descAvista ? numeroBr(pr.descAvista) + '% de desconto sobre ' + emReais(pr.cheio) : '', true);
+    y += 8;
 
-    // A tabela de parcelas: o cliente lê a linha do parcelamento que ele
-    // quer. Papel não tem botão, então todas as opções vão escritas.
-    function tabelaDeParcelas(titulo, linhas, colunaMeio) {
-      if (y > f.altura - 120) { f.novaPagina(); y = 70; }
-      f.texto(titulo, MARGEM, y, { tamanho: 10, negrito: true });
-      y += 16;
-      var xVezes = MARGEM + 8;
-      var xMeio = MARGEM + 108;
-      f.retangulo(MARGEM, y - 11, direita - MARGEM, 20, [0.94, 0.94, 0.94]);
-      f.texto('PARCELAS', xVezes, y + 2, { tamanho: 7.5, negrito: true, cor: CINZA });
-      f.texto(colunaMeio, xMeio, y + 2, { tamanho: 7.5, negrito: true, cor: CINZA });
-      f.texto('TOTAL', direita - 8, y + 2,
-              { tamanho: 7.5, negrito: true, alinhar: 'direita', cor: CINZA });
-      y += 24;
+    // Duas colunas lado a lado, como o quadro de taxas da maquininha: o
+    // papel fica curto e a comparação entra de uma olhada só.
+    var LARGURA_COL = (direita - MARGEM - 18) / 2;
+
+    function alturaDoQuadro(linhas) { return 30 + linhas.length * 14 + 10; }
+
+    function desenharQuadro(x, topo, titulo, subtitulo, linhas) {
+      var alt = alturaDoQuadro(linhas) + (subtitulo ? 11 : 0);
+      f.retangulo(x, topo, LARGURA_COL, alt, [0.965, 0.965, 0.965]);
+      var yy = topo + 16;
+      f.texto(titulo, x + 10, yy, { tamanho: 9.5, negrito: true });
+      yy += subtitulo ? 12 : 0;
+      if (subtitulo) f.texto(subtitulo, x + 10, yy, { tamanho: 7.5, cor: CINZA });
+      yy += 8;
+      f.linha(x + 10, yy, x + LARGURA_COL - 10, yy, 0.5, [0.82, 0.82, 0.82]);
+      yy += 13;
       linhas.forEach(function (l) {
-        if (y > f.altura - 70) {
-          f.novaPagina(); y = 70;
-          f.texto(titulo + ' (continuação)', MARGEM, y, { tamanho: 9, negrito: true, cor: CINZA });
-          y += 20;
-        }
-        f.texto(l.vezes === 1 ? 'à vista' : l.vezes + 'x', xVezes, y, { tamanho: 10 });
-        f.texto(l.meio, xMeio, y, { tamanho: 10 });
-        f.texto(emReais(l.total), direita - 8, y, { tamanho: 10, negrito: true, alinhar: 'direita' });
-        y += 14;
-        f.linha(MARGEM, y - 4, direita, y - 4, 0.3, [0.9, 0.9, 0.9]);
-        y += 4;
+        f.texto(l.esq, x + 10, yy, { tamanho: 8.5, negrito: !!l.forte, cor: l.forte ? [0, 0, 0] : CINZA });
+        if (l.meio) f.texto(l.meio, x + LARGURA_COL - 78, yy, { tamanho: 8.5, alinhar: 'direita', cor: CINZA });
+        f.texto(l.dir, x + LARGURA_COL - 10, yy, { tamanho: 8.5, negrito: true, alinhar: 'direita' });
+        yy += 14;
       });
-      y += 10;
+      return alt;
     }
 
-    pr.bandeiras.forEach(function (b) {
-      if (b.debito) {
-        formaDePagamento('Débito · ' + b.nome, b.totalDebito, '');
+    // Os quadros saem dois a dois; sozinho, um quadro parte em duas colunas
+    // para não deixar meia página vazia.
+    function quadrosEmPares(quadros) {
+      for (var i = 0; i < quadros.length; i += 2) {
+        var a = quadros[i], b = quadros[i + 1] || null;
+        var alt = Math.max(alturaDoQuadro(a.linhas) + (a.subtitulo ? 11 : 0),
+                           b ? alturaDoQuadro(b.linhas) + (b.subtitulo ? 11 : 0) : 0);
+        if (y + alt > f.altura - 70) { f.novaPagina(); y = 70; }
+        desenharQuadro(MARGEM, y, a.titulo, a.subtitulo, a.linhas);
+        if (b) desenharQuadro(MARGEM + LARGURA_COL + 18, y, b.titulo, b.subtitulo, b.linhas);
+        y += alt + 14;
       }
-      tabelaDeParcelas('Crédito · ' + b.nome, b.credito.map(function (l) {
-        return { vezes: l.vezes, total: l.total,
-                 meio: l.vezes === 1 ? emReais(l.total) : l.vezes + 'x de ' + emReais(l.parcela) };
-      }), 'CADA PARCELA');
-    });
+    }
+
+    function linhasDeCredito(b, de, ate) {
+      var fora = [];
+      if (de === 0 && b.debito) {
+        fora.push({ esq: 'Débito', meio: '', dir: emReais(b.totalDebito) });
+      }
+      b.credito.slice(de, ate).forEach(function (l) {
+        fora.push({
+          esq: l.vezes === 1 ? 'à vista' : l.vezes + 'x',
+          meio: l.vezes === 1 ? '' : emReais(l.parcela),
+          dir: emReais(l.total)
+        });
+      });
+      return fora;
+    }
+
+    var quadros = [];
+    if (pr.bandeiras.length === 1) {
+      // Uma bandeira só: parto as parcelas em duas metades lado a lado.
+      var b0 = pr.bandeiras[0];
+      var meio = Math.ceil(b0.credito.length / 2);
+      quadros.push({ titulo: b0.nome, subtitulo: 'cada parcela  ·  total',
+                     linhas: linhasDeCredito(b0, 0, meio) });
+      if (b0.credito.length > meio) {
+        quadros.push({ titulo: b0.nome, subtitulo: 'cada parcela  ·  total',
+                       linhas: linhasDeCredito(b0, meio, b0.credito.length) });
+      }
+    } else {
+      pr.bandeiras.forEach(function (b) {
+        quadros.push({ titulo: b.nome, subtitulo: 'cada parcela  ·  total',
+                       linhas: linhasDeCredito(b, 0, b.credito.length) });
+      });
+    }
+    quadrosEmPares(quadros);
 
     if (pr.direto) {
-      tabelaDeParcelas('Parcelado direto', pr.direto.planos.map(function (pl) {
-        var pri = pl.itens[0].valor, ult = pl.itens[pl.itens.length - 1].valor;
-        var meio = pl.vezes + 'x de ' + emReais(pri);
-        if (pl.vezes > 1 && pri !== ult) meio += ' (última ' + emReais(ult) + ')';
-        if (pl.entrada) meio = emReais(pl.entrada) + ' + ' + meio;
-        return { vezes: pl.vezes, total: pl.total, meio: meio };
-      }), 'COMO FICA');
-      if (pr.direto.planos[0].itens.length) {
-        f.texto('Primeira parcela em ' + dataBr(pr.direto.planos[0].itens[0].vencimento) + '.',
+      var planos = pr.direto.planos;
+      var metade = Math.ceil(planos.length / 2);
+      function linhasDireto(de, ate) {
+        return planos.slice(de, ate).map(function (pl) {
+          var pri = pl.itens[0].valor;
+          return {
+            esq: pl.vezes === 1 ? 'à vista' : pl.vezes + 'x',
+            meio: pl.vezes === 1 ? '' : emReais(pri),
+            dir: emReais(pl.total)
+          };
+        });
+      }
+      var sub = 'parcelado direto' + (pr.direto.entrada ? '  ·  entrada ' + emReais(pr.direto.entrada) : '');
+      var doDireto = [{ titulo: 'Parcelado direto', subtitulo: sub, linhas: linhasDireto(0, metade) }];
+      if (planos.length > metade) {
+        doDireto.push({ titulo: 'Parcelado direto', subtitulo: sub, linhas: linhasDireto(metade, planos.length) });
+      }
+      quadrosEmPares(doDireto);
+      if (planos[0].itens.length) {
+        f.texto('Primeira parcela em ' + dataBr(planos[0].itens[0].vencimento) + '.',
                 MARGEM, y, { tamanho: 8.5, cor: CINZA });
         y += 16;
       }
     }
-    y += 6;
+    y += 10;
 
     if (p.validade) {
       f.texto('Este orçamento vale até ' + dataBr(p.validade) + '.', MARGEM, y,
