@@ -1,4 +1,4 @@
-# Ligando o Caixa ao Supabase
+# Ligando o Finanz ao Supabase
 
 Guia de configuração, na ordem. São uns 20 minutos.
 No fim você me manda duas chaves e eu escrevo a sincronização.
@@ -67,10 +67,10 @@ Esta parte é no Google, não no Supabase. Antes de começar, copie a **callback
 
 Agora, em <https://console.cloud.google.com>:
 
-1. Crie um projeto (nome livre, pode ser `Caixa`).
+1. Crie um projeto (nome livre, pode ser `Finanz`).
 2. **APIs e serviços** → **Tela de permissão OAuth**:
    - Tipo: **Externo**
-   - Nome do app: `Caixa`
+   - Nome do app: `Finanz`
    - E-mail de suporte e e-mail do desenvolvedor: o seu
    - Salve e siga até o fim. Pode deixar em modo **Teste** por enquanto; nesse modo só os e-mails que você cadastrar como testadores conseguem entrar. Para abrir ao público é preciso publicar o app.
 3. **APIs e serviços** → **Credenciais** → **Criar credenciais** → **ID do cliente OAuth**:

@@ -1,5 +1,6 @@
-const VERSAO = '4.3.1';
-const CACHE = 'caixa-v' + VERSAO;
+const VERSAO = '4.4.0';
+const CACHE = 'finanz-v' + VERSAO;
+const CACHE_PARTILHA = 'finanz-partilha';
 
 const ESSENCIAIS = [
   './',
@@ -9,7 +10,10 @@ const ESSENCIAIS = [
   './abertura.webp',
   './selo.webp',
   './manifest.webmanifest',
-  './icon.svg'
+  './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-maskable.png'
 ];
 
 self.addEventListener('install', (evento) => {
@@ -24,7 +28,10 @@ self.addEventListener('activate', (evento) => {
   evento.waitUntil(
     caches.keys()
       .then((chaves) => Promise.all(
-        chaves.filter((chave) => chave !== CACHE).map((chave) => caches.delete(chave))
+        // O cache da partilha guarda o arquivo que a pessoa acabou de
+        // compartilhar: apagar ele numa atualização perderia o arquivo.
+        chaves.filter((chave) => chave !== CACHE && chave !== CACHE_PARTILHA)
+          .map((chave) => caches.delete(chave))
       ))
       .then(() => self.clients.claim())
   );
@@ -39,7 +46,6 @@ self.addEventListener('message', (evento) => {
 });
 
 // Onde o arquivo compartilhado fica guardado até o aplicativo pegar ele.
-const CACHE_PARTILHA = 'caixa-partilha';
 const CAMINHO_PARTILHA = './arquivo-compartilhado';
 
 self.addEventListener('fetch', (evento) => {

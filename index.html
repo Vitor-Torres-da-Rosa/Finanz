@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
 <meta name="description" content="Controle de receitas, despesas, investimentos e metas.">
-<title>Caixa</title>
+<title>Finanz</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icon-512.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Caixa">
+<meta name="apple-mobile-web-app-title" content="Finanz">
 <style>
   :root {
     --fundo: #050506;
@@ -1464,13 +1465,57 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.3.1';
+  var VERSAO = '4.4.0';
+  // Estes nomes ficaram como nasceram, na época em que o app se chamava
+  // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
   var CHAVE_ANTIGA = 'caixa.lancamentos.v1';
   var CHAVE_CONTAS = 'caixa.usuarios.v3';
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '4.4.0',
+      data: '2026-09-09',
+      itens: [
+        'O app agora se chama Finanz, e o ícone na tela inicial passou a ser o símbolo dourado que abre o app.',
+        'Seus dados, contas e backups continuam os mesmos: só o nome e o ícone mudaram.'
+      ]
+    },
+    {
+      versao: '4.3.1',
+      data: '2026-09-08',
+      itens: [
+        'Conferir a conta: o mês a mês vai de página em página, dá para chegar no mês mais antigo.',
+        'Possíveis repetidos: tocar num grupo abre as transações uma a uma, cada uma dizendo de qual extrato veio e quando entrou.'
+      ]
+    },
+    {
+      versao: '4.3.0',
+      data: '2026-09-08',
+      itens: [
+        'Conserto grande: extrato com duas colunas de dinheiro (Valor e Saldo) entrava com o saldo no lugar do valor. Agora o app confere a conta linha a linha para saber qual coluna é qual.',
+        'Botão "Conferir esta conta": saldo do app contra o saldo do banco, mês a mês, possíveis repetidos e as importações feitas, cada uma podendo ser desfeita inteira.',
+        'Terminando a importação, o app compara com o saldo que o extrato mostra no fim e avisa se não bater.',
+        'Escolher datas agora são dois calendários, um para o começo e outro para o fim.'
+      ]
+    },
+    {
+      versao: '4.2.2',
+      data: '2026-09-07',
+      itens: [
+        'Descrição repetida ("Pix enviado: Pix enviado: ...") sai uma vez só, inclusive no que já foi importado.',
+        'Importando vários arquivos, dá para pular para o próximo quando o atual não tem nada de novo.'
+      ]
+    },
+    {
+      versao: '4.2.1',
+      data: '2026-09-07',
+      itens: [
+        'Extrato em PDF do Banco Inter, que escreve a data uma vez por dia num cabeçalho.',
+        '"Imposto" não cai mais em Combustível nem "Ensino Superior" em Mercado.'
+      ]
+    },
     {
       versao: '4.2.0',
       data: '2026-09-07',
@@ -1558,7 +1603,7 @@
       data: '2026-09-07',
       itens: [
         'Conserto do "Não foi possível abrir o arquivo": o app tenta ler de três jeitos diferentes antes de desistir, e o botão virou um toque direto no seletor.',
-        'Novo caminho que não depende do seletor: abra o arquivo no gerenciador de arquivos, toque em Compartilhar e escolha o Caixa.',
+        'Novo caminho que não depende do seletor: abra o arquivo no gerenciador de arquivos, toque em Compartilhar e escolha o Finanz.',
         'Quando falha mesmo assim, o app diz o motivo técnico e oferece escolher de novo.',
         'Restaurar backup passou a usar o mesmo caminho teimoso de leitura.'
       ]
@@ -2648,7 +2693,9 @@
   // /rest/v1. A chave publicável vai em todo pedido; o token da pessoa
   // vai no Authorization e é ele que faz o RLS liberar só as linhas dela.
 
-  var CFG = window.CAIXA_CONFIG || {};
+  // O nome antigo continua valendo: um config.js dos tempos do Caixa
+  // segue funcionando sem precisar de troca.
+  var CFG = window.FINANZ_CONFIG || window.CAIXA_CONFIG || {};
   var NUVEM = {
     ligada: !!(CFG.supabaseUrl && CFG.supabaseAnonKey),
     url: String(CFG.supabaseUrl || '').replace(/\/+$/, ''),
@@ -3886,15 +3933,15 @@
   function marcaBarra() {
     var barra = no('div', 'marca-barra');
     barra.appendChild(imagemDaMarca('selo.webp', 'marca-selo', 256, 200, ''));
-    barra.appendChild(no('div', 'marca-nome', 'CAIXA'));
+    barra.appendChild(no('div', 'marca-nome', 'FINANZ'));
     barra.appendChild(no('div', 'marca-sub', 'Inteligência financeira'));
     return barra;
   }
 
   function marcaCaixa() {
     var caixa = no('div', 'marca-caixa');
-    caixa.appendChild(imagemDaMarca('abertura.webp', 'marca-heroi', 853, 859, 'Símbolo do Caixa'));
-    caixa.appendChild(no('div', 'marca-nome', 'CAIXA'));
+    caixa.appendChild(imagemDaMarca('abertura.webp', 'marca-heroi', 853, 859, 'Símbolo do Finanz'));
+    caixa.appendChild(no('div', 'marca-nome', 'FINANZ'));
     caixa.appendChild(no('div', 'marca-sub', 'Inteligência financeira'));
     return caixa;
   }
@@ -4677,7 +4724,7 @@
     termos: {
       titulo: 'Termos de Uso',
       partes: [
-        'O Caixa é um app de controle financeiro pessoal. Ele ajuda você a registrar e enxergar o seu dinheiro, mas não movimenta valores, não faz pagamentos e não dá recomendação de investimento.',
+        'O Finanz é um app de controle financeiro pessoal. Ele ajuda você a registrar e enxergar o seu dinheiro, mas não movimenta valores, não faz pagamentos e não dá recomendação de investimento.',
         'Os números que aparecem aqui vêm do que você mesmo cadastra. Projeções, como a de aposentadoria, são estimativas matemáticas e não promessa de rendimento.',
         'O app é fornecido como está, sem garantia. Confira sempre os valores oficiais no seu banco ou corretora antes de tomar decisões.',
         'Você é responsável por guardar sua senha e o código de recuperação. Sem eles não há como abrir seus dados.'
@@ -4686,7 +4733,7 @@
     privacidade: {
       titulo: 'Política de Privacidade',
       partes: NUVEM.ligada ? [
-        'Com a conta ligada, seus dados ficam em duas casas: neste aparelho e no servidor do Caixa, hospedado no Supabase, na região de São Paulo.',
+        'Com a conta ligada, seus dados ficam em duas casas: neste aparelho e no servidor do Finanz, hospedado no Supabase, na região de São Paulo.',
         'No servidor cada linha carrega o dono. O banco aplica uma regra chamada Row Level Security que devolve apenas as linhas de quem está logado. Isso vale mesmo se o aplicativo pedir outra coisa, porque a checagem é feita pelo banco, não pelo aplicativo.',
         'Quem administra o servidor consegue ler os dados, como em qualquer aplicativo de finanças. Se você prefere que ninguém além de você leia, não use a conta na nuvem: sem servidor configurado o app guarda tudo cifrado só no aparelho.',
         'A cópia que fica no seu aparelho é cifrada com AES-GCM de 256 bits, mas a chave dessa cópia mora no próprio aparelho. Ela atrapalha uma leitura casual do armazenamento, e não substitui o bloqueio de tela do celular.',
@@ -4694,7 +4741,7 @@
         'Não há rastreamento, publicidade, cookies de terceiros ou envio de estatísticas.',
         'Você pode sair da conta e apagar tudo pelo menu Mais, e baixar um backup em JSON a qualquer momento. Atenção: o arquivo de backup sai sem criptografia, então guarde em lugar seguro.'
       ] : [
-        'Hoje o Caixa funciona inteiramente dentro do seu aparelho. Não existe servidor, não há cadastro em nenhum lugar e nada do que você digita sai do navegador.',
+        'Hoje o Finanz funciona inteiramente dentro do seu aparelho. Não existe servidor, não há cadastro em nenhum lugar e nada do que você digita sai do navegador.',
         'Seus dados são gravados no armazenamento local do navegador, cifrados com AES-GCM de 256 bits. A chave é derivada da sua senha com PBKDF2 e nunca é guardada em texto puro.',
         'Se você marcar "Lembrar de mim", a chave fica guardada no aparelho para abrir o app direto. Sem marcar, ela vale só enquanto a aba estiver aberta.',
         'Não há rastreamento, publicidade, cookies de terceiros ou envio de estatísticas.',
@@ -4813,7 +4860,7 @@
   function perguntarSaida() {
     if (saindoDoApp || dialogoAberto) return;
     perguntar({
-      titulo: 'Sair do Caixa?',
+      titulo: 'Sair do Finanz?',
       texto: 'Seus dados ficam guardados. É só abrir de novo quando quiser.',
       ok: 'Sair', cancelar: 'Ficar no app', icone: 'saindo',
       semHistorico: true,
@@ -8795,7 +8842,7 @@
     var dica = no('div', 'linha-nota');
     dica.style.padding = '2px 16px 16px';
     dica.textContent = 'Se o celular não deixar escolher o arquivo, abra ele no gerenciador ' +
-      'de arquivos, toque em Compartilhar e escolha o Caixa.';
+      'de arquivos, toque em Compartilhar e escolha o Finanz.';
     cDados.appendChild(dica);
 
     if (NUVEM.ligada) {
@@ -8851,7 +8898,7 @@
     var rodape = no('div');
     rodape.style.textAlign = 'center';
     rodape.style.padding = '10px 0 4px';
-    rodape.appendChild(no('div', 'linha-nota', 'Caixa versão ' + VERSAO));
+    rodape.appendChild(no('div', 'linha-nota', 'Finanz versão ' + VERSAO));
     rodape.appendChild(no('div', 'linha-nota', NUVEM.ligada
       ? 'Seus dados ficam neste aparelho e na sua conta no servidor.'
       : 'Seus dados ficam só neste aparelho, no navegador.'));
@@ -8867,7 +8914,7 @@
 
   function abrirNovidades() {
     abrirFolha('Novidades', function (folha) {
-      folha.appendChild(no('p', 'linha-sub', 'Histórico das versões do Caixa.'));
+      folha.appendChild(no('p', 'linha-sub', 'Histórico das versões do Finanz.'));
       var lista = no('div');
       lista.style.marginTop = '18px';
       NOVIDADES.forEach(function (n) {
@@ -10659,7 +10706,7 @@
     }
 
     alvo.appendChild(no('p', 'rel-nota',
-      'Gerado pelo Caixa a partir dos dados guardados neste aparelho. Para salvar em PDF, use o botão acima e escolha "Salvar como PDF" no destino de impressão.'));
+      'Gerado pelo Finanz a partir dos dados guardados neste aparelho. Para salvar em PDF, use o botão acima e escolha "Salvar como PDF" no destino de impressão.'));
 
     $('relatorio').classList.add('aberto');
     document.body.style.overflow = 'hidden';
@@ -12926,7 +12973,7 @@
     }
     if (!window.caches) return;
 
-    caches.open('caixa-partilha').then(function (cache) {
+    caches.open('finanz-partilha').then(function (cache) {
       return cache.match('./arquivo-compartilhado').then(function (r) {
         if (!r) return null;
         var nome = 'arquivo';
@@ -13100,12 +13147,12 @@
     }
     if (/NotReadable|NotAllowed|Security/i.test(nome)) {
       return 'O Android bloqueou a leitura desse arquivo. Baixe ele para a pasta Downloads ' +
-        'do celular e tente por lá, ou mande para o Caixa pelo Compartilhar.' + detalhe;
+        'do celular e tente por lá, ou mande para o Finanz pelo Compartilhar.' + detalhe;
     }
     if (/vazio/.test(nome)) {
       return 'Esse arquivo veio vazio. Baixe de novo pelo aplicativo do banco.' + detalhe;
     }
-    return 'Não consegui abrir o arquivo. Tente mandar para o Caixa pelo Compartilhar, ' +
+    return 'Não consegui abrir o arquivo. Tente mandar para o Finanz pelo Compartilhar, ' +
       'a partir do gerenciador de arquivos.' + detalhe;
   }
 
@@ -13748,8 +13795,8 @@
   }
 
   function fazerBackup() {
-    var pacote = { app: 'caixa', versao: VERSAO, exportadoEm: new Date().toISOString(), dados: estado };
-    baixarArquivo('caixa-backup-' + carimbo() + '.json', JSON.stringify(pacote, null, 2), 'application/json');
+    var pacote = { app: 'finanz', versao: VERSAO, exportadoEm: new Date().toISOString(), dados: estado };
+    baixarArquivo('finanz-backup-' + carimbo() + '.json', JSON.stringify(pacote, null, 2), 'application/json');
     avisar('Backup gerado.');
   }
 
@@ -13821,7 +13868,7 @@
         bruto = JSON.parse(cru.replace(/^\uFEFF/, '').trim());
       } catch (e) {
         avisarCaixa('Arquivo inválido',
-          'Não consegui entender esse arquivo como backup do Caixa. (' +
+          'Não consegui entender esse arquivo como backup do Finanz. (' +
           (e && e.message ? e.message : 'formato desconhecido') + ')', function () {});
         return;
       }
@@ -13831,7 +13878,7 @@
       else if (bruto && Array.isArray(bruto.lancamentos)) dados = bruto;
       else if (Array.isArray(bruto)) dados = { lancamentos: bruto };
 
-      if (!dados) { avisar('Arquivo inválido: não encontrei os dados do Caixa.'); return; }
+      if (!dados) { avisar('Arquivo inválido: não encontrei os dados do Finanz.'); return; }
 
       var limpo = limparEstado(dados);
 
