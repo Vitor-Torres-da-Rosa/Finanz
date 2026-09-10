@@ -21,8 +21,8 @@ Para voltar à versão nova, é só usar o endereço normal do app.
 
 ## O que é guardado
 
-As três últimas versões, cada uma completa: `index.html`, o service worker,
-o manifesto, os ícones e as imagens. Mais que três só engorda o repositório
+As cinco últimas versões, cada uma completa: `index.html`, o service worker,
+o manifesto, os ícones e as imagens. Mais que cinco só engorda o repositório
 sem ajudar.
 
 Cada versão também vira uma etiqueta no git aqui do lado de cá. Elas não
@@ -37,4 +37,4 @@ Antes de subir uma versão nova:
     ./guardar-versao.sh
 
 Ele copia a versão que está no `index.html` para `versoes/<numero>/`,
-apaga as que passaram de três e refaz a página da lista.
+apaga as que passaram de cinco e refaz a página da lista.

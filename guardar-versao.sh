@@ -3,7 +3,7 @@
 #
 # Serve para uma coisa só: se uma atualização estragar alguma coisa, dá para
 # abrir a versão anterior no celular na hora, sem mexer em git nem esperar
-# ninguém. Guardo as três últimas; mais que isso só engorda o repositório.
+# ninguém. Guardo as cinco últimas; mais que isso só engorda o repositório.
 set -u
 cd "$(dirname "$0")" || exit 1
 
@@ -19,11 +19,12 @@ cp index.html sw.js manifest.webmanifest config.js icon.svg "$DESTINO/" 2>/dev/n
 cp icon-*.png *.webp "$DESTINO/" 2>/dev/null
 echo "guardada a versão $VERSAO em $DESTINO"
 
-# Só as três últimas ficam. Ordena por número de versão, não por texto.
+# Só as cinco últimas ficam. Ordena por número de versão, não por texto:
+# em ordem de texto a 5.10.0 viria antes da 5.9.0 e eu apagaria a errada.
 GUARDADAS=$(ls -1 versoes 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n -k3,3n)
 TOTAL=$(echo "$GUARDADAS" | grep -c .)
-if [ "$TOTAL" -gt 3 ]; then
-  echo "$GUARDADAS" | head -n $((TOTAL - 3)) | while read -r velha; do
+if [ "$TOTAL" -gt 5 ]; then
+  echo "$GUARDADAS" | head -n $((TOTAL - 5)) | while read -r velha; do
     rm -rf "versoes/$velha"
     echo "tirei a versão antiga $velha"
   done
