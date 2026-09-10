@@ -1571,7 +1571,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.2.1';
+  var VERSAO = '5.2.0';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1580,15 +1580,6 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
-    {
-      versao: '5.2.1',
-      data: '2026-09-10',
-      itens: [
-        'Correção no parcelado direto: o "à vista" do PDF vinha com o acréscimo somado, então o cliente via um preço diferente do combinado. Um orçamento de R$ 800,00 com R$ 100,00 por parcela mostrava R$ 900,00 à vista. Agora mostra R$ 800,00.',
-        'O acréscimo é o custo de parcelar, então ele passa a entrar só de 2x em diante. As outras opções não mudaram: 2x continua R$ 1.000,00 e 3x continua R$ 1.100,00, no exemplo acima.',
-        'Na tela do orçamento o à vista agora aparece junto do "até X vezes", com a nota "sem acréscimo — é o total do orçamento", para você conferir antes de mandar o PDF.'
-      ]
-    },
     {
       versao: '5.2.0',
       data: '2026-09-10',
@@ -8406,16 +8397,9 @@
         cPag.appendChild(rotD);
         pr.direto.planos.forEach(function (pl) {
           var pri = pl.itens[0].valor, ult = pl.itens[pl.itens.length - 1].valor;
-          // No à vista o detalhe interessante é justamente não haver acréscimo.
-          var det2;
-          if (pl.vezes === 1) {
-            det2 = pl.entrada ? emReais(pl.entrada) + ' + ' + emReais(pl.total - pl.entrada)
-                              : 'sem acréscimo';
-          } else {
-            det2 = pl.vezes + 'x de ' + emReais(pri);
-            if (pri !== ult) det2 += ' (última ' + emReais(ult) + ')';
-            if (pl.entrada) det2 = emReais(pl.entrada) + ' + ' + det2;
-          }
+          var det2 = pl.vezes + 'x de ' + emReais(pri);
+          if (pl.vezes > 1 && pri !== ult) det2 += ' (última ' + emReais(ult) + ')';
+          if (pl.entrada) det2 = emReais(pl.entrada) + ' + ' + det2;
           precoPronto(pl.vezes === 1 ? 'À vista' : pl.vezes + 'x', pl.total, det2);
         });
       }
