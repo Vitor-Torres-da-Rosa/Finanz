@@ -35,3 +35,8 @@ alter table public.perfis add column if not exists contato text not null default
 -- Desconto à vista e taxas da maquininha usados da última vez, para o
 -- próximo orçamento já vir preenchido.
 alter table public.perfis add column if not exists taxas jsonb not null default '{}'::jsonb;
+
+-- Quanto da renda a pessoa quer guardar por mês, e o que ela já respondeu
+-- sobre cada despesa que se repete.
+alter table public.perfis add column if not exists meta_economia smallint not null default 20;
+alter table public.perfis add column if not exists revisados jsonb not null default '{}'::jsonb;
