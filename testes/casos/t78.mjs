@@ -22,18 +22,18 @@ await page.evaluate(() => new Promise(res => {
   for (let m = 0; m < 80; m++) {
     const d = new Date(2019, 6 + m, 15);
     const data = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-15';
-    l.push({ id:'a'+(n++), tipo:'entrada', valor: 100000+m, data, contaId:'inter', categoria:'Venda', descricao:'Salário '+m });
-    l.push({ id:'b'+(n++), tipo:'saida', valor: 90000+m, data, contaId:'inter', categoria:'Mercado', descricao:'Compra '+m });
+    l.push({ id:'a-t78'+(n++), tipo:'entrada', valor: 100000+m, data, contaId:'inter-t78', categoria:'Venda', descricao:'Salário '+m });
+    l.push({ id:'b'+(n++), tipo:'saida', valor: 90000+m, data, contaId:'inter-t78', categoria:'Mercado', descricao:'Compra '+m });
     if (m < 34) { // o mesmo extrato importado duas vezes
-      l.push({ id:'r'+(n++), tipo:'saida', valor: 2500, data, contaId:'inter', categoria:'Casa',
+      l.push({ id:'r'+(n++), tipo:'saida', valor: 2500, data, contaId:'inter-t78', categoria:'Casa',
                descricao:'Recarga - Mega+', importacaoId:'imp1', criadoEm: 1700000000000 });
-      l.push({ id:'r'+(n++), tipo:'saida', valor: 2500, data, contaId:'inter', categoria:'Casa',
+      l.push({ id:'r'+(n++), tipo:'saida', valor: 2500, data, contaId:'inter-t78', categoria:'Casa',
                descricao:'Recarga - Mega+', importacaoId:'imp2', criadoEm: 1700000600000 });
     }
   }
-  const dados = { contas:[{id:'inter',nome:'Banco Inter',tipo:'Conta corrente',saldoInicial:0}], lancamentos:l,
-    importacoes:[{id:'imp1',contaId:'inter',arquivo:'extrato-agosto.pdf',banco:'Banco Inter',quando:1700000000000,quantos:34},
-                 {id:'imp2',contaId:'inter',arquivo:'extrato-agosto (1).pdf',banco:'Banco Inter',quando:1700000600000,quantos:34}] };
+  const dados = { contas:[{id:'inter-t78',nome:'Banco Inter',tipo:'Conta corrente',saldoInicial:0}], lancamentos:l,
+    importacoes:[{id:'imp1',contaId:'inter-t78',arquivo:'extrato-agosto.pdf',banco:'Banco Inter',quando:1700000000000,quantos:34},
+                 {id:'imp2',contaId:'inter-t78',arquivo:'extrato-agosto (1).pdf',banco:'Banco Inter',quando:1700000600000,quantos:34}] };
   const f = new File([JSON.stringify({app:'caixa', dados})], 'b.json', {type:'application/json'});
   const inp = document.getElementById('arquivoRestaurar');
   const dt = new DataTransfer(); dt.items.add(f); inp.files = dt.files;

@@ -32,7 +32,7 @@ await page.evaluate(() => new Promise(res => {
   for (let m = 6; m >= 0; m--) {
     const data = mes(m);
     l.push({ id:'e'+(n++), tipo:'entrada', valor: 800000, data, contaId:'cc', categoria:'Salário', descricao:'Salário' });
-    l.push({ id:'a'+(n++), tipo:'saida', valor: 120000, data, contaId:'cc', categoria:'Moradia', descricao:'Aluguel' });
+    l.push({ id:'a-t83'+(n++), tipo:'saida', valor: 120000, data, contaId:'cc', categoria:'Moradia', descricao:'Aluguel' });
     l.push({ id:'f'+(n++), tipo:'saida', valor: m === 0 ? 180000 : 65000, data, contaId:'cartao', categoria:'Alimentação', descricao:'Mercado do bairro' });
     l.push({ id:'s'+(n++), tipo:'saida', valor: 3990, data, contaId:'cartao', categoria:'Assinaturas', descricao:'Streaming Mensal' });
     l.push({ id:'g'+(n++), tipo:'saida', valor: 8990, data, contaId:'cartao', categoria:'Lazer', descricao:'Academia Corpo' });

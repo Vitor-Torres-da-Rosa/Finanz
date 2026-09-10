@@ -22,11 +22,11 @@ const hoje = new Date().toISOString().slice(0,10);
 await page.evaluate((hoje) => new Promise(res => {
   const l = [];
   for (let i = 0; i < 6; i++) {
-    l.push({ id:'x'+i, tipo:'saida', valor: 3013580, data: hoje, contaId:'inter',
+    l.push({ id:'x'+i, tipo:'saida', valor: 3013580, data: hoje, contaId:'inter-t77',
              categoria:'Outros', descricao:'Pagamento efetuado: PAGAMENTO' });
   }
   l.push({ id:'y1', tipo:'entrada', valor: 500000, data: hoje, contaId:'c6', categoria:'Venda', descricao:'Salário' });
-  const dados = { contas:[{id:'inter',nome:'Banco Inter',tipo:'Conta corrente',saldoInicial:0},
+  const dados = { contas:[{id:'inter-t77',nome:'Banco Inter',tipo:'Conta corrente',saldoInicial:0},
                           {id:'c6',nome:'C6 Bank',tipo:'Conta corrente',saldoInicial:0}], lancamentos:l };
   const f = new File([JSON.stringify({app:'caixa', dados})], 'b.json', {type:'application/json'});
   const inp = document.getElementById('arquivoRestaurar');

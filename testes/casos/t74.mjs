@@ -27,8 +27,8 @@ console.log('2. alguma repetida?', descs.some(d => /^(.{5,40}?)\s*[:–—-]?\s+
 
 // e o que já estava guardado, importado antes da correção?
 const r = await page.evaluate(() => new Promise(res => {
-  const dados = { contas:[{id:'a',nome:'Banco Inter',tipo:'Conta corrente',saldoInicial:0}],
-    lancamentos:[{id:'l1',tipo:'saida',valor:11534,data:'2026-09-08',contaId:'a',categoria:'Outros',
+  const dados = { contas:[{id:'a-t74',nome:'Banco Inter',tipo:'Conta corrente',saldoInicial:0}],
+    lancamentos:[{id:'l1-t74',tipo:'saida',valor:11534,data:'2026-09-08',contaId:'a-t74',categoria:'Outros',
                   descricao:'Pix enviado: Pix enviado: Vitor Torres Fantinelli da Rosa'}] };
   const f = new File([JSON.stringify({app:'caixa', dados})], 'b.json', {type:'application/json'});
   const inp = document.getElementById('arquivoRestaurar');

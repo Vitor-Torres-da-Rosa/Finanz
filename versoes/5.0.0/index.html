@@ -1571,7 +1571,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.1.0';
+  var VERSAO = '5.0.0';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1580,15 +1580,6 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
-    {
-      versao: '5.1.0',
-      data: '2026-09-10',
-      itens: [
-        'A meta de economia agora é sua: escolha em Mais → Preferências quanto da renda quer guardar por mês. É a régua da nota de saúde e do "quanto falta".',
-        'A sincronia deixou de falhar em silêncio. Se os dados não estiverem indo para a nuvem, isso aparece em Mais, em vermelho, com o motivo.',
-        'Toda atualização passa a guardar a versão anterior. Se algo quebrar, dá para voltar na hora em finanz/versoes/, pelo celular.'
-      ]
-    },
     {
       versao: '5.0.0',
       data: '2026-09-10',
@@ -11386,16 +11377,6 @@
       if (comFalha) sinc.querySelector('.linha-sub').style.color = 'var(--vermelho)';
       cDados.appendChild(sinc);
     }
-
-    var versoes = botao('linha', null, function () {
-      window.open('versoes/', '_blank', 'noopener');
-    });
-    juntar(versoes,
-      selo('#94A3B4', '↩'),
-      juntar(no('div', 'linha-texto'),
-        no('div', 'linha-titulo', 'Versões guardadas'),
-        no('div', 'linha-sub', 'Se uma atualização der problema, abra a anterior')));
-    cDados.appendChild(versoes);
 
     var novidades = botao('linha', null, abrirNovidades);
     juntar(novidades,
