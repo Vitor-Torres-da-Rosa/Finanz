@@ -1571,7 +1571,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.2.1';
+  var VERSAO = '5.2.2';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1581,12 +1581,14 @@
 
   var NOVIDADES = [
     {
-      versao: '5.2.1',
+      versao: '5.2.2',
       data: '2026-09-10',
       itens: [
-        'Correção no parcelado direto: o "à vista" do PDF vinha com o acréscimo somado, então o cliente via um preço diferente do combinado. Um orçamento de R$ 800,00 com R$ 100,00 por parcela mostrava R$ 900,00 à vista. Agora mostra R$ 800,00.',
-        'O acréscimo é o custo de parcelar, então ele passa a entrar só de 2x em diante. As outras opções não mudaram: 2x continua R$ 1.000,00 e 3x continua R$ 1.100,00, no exemplo acima.',
-        'Na tela do orçamento o à vista agora aparece junto do "até X vezes", com a nota "sem acréscimo — é o total do orçamento", para você conferir antes de mandar o PDF.'
+        'Correção no parcelado direto: o acréscimo estava sendo cobrado em todas as parcelas, inclusive no à vista. Um orçamento de R$ 800,00 com R$ 100,00 por parcela mostrava R$ 900,00 à vista, R$ 1.000,00 em 2x e R$ 1.100,00 em 3x.',
+        'O acréscimo agora é o preço de esperar: conta uma vez para cada parcela depois da primeira. O mesmo orçamento passa a mostrar R$ 800,00 à vista, R$ 900,00 em 2x, R$ 1.000,00 em 3x, R$ 1.100,00 em 4x — de R$ 100 em R$ 100, começando no 2x.',
+        'Cada opção continua dividida em parcelas iguais, que é o que a coluna "cada parcela" do PDF promete: 2x de R$ 450,00, 3x de R$ 333,33, e assim por diante.',
+        'Vale igual para o acréscimo em porcentagem: antes o percentual dava o mesmo total em 1x e em 12x; agora ele também sobe um degrau por parcela.',
+        'Na tela do orçamento o à vista aparece junto do "até X vezes", com a nota "sem acréscimo — é o total do orçamento", para você conferir antes de mandar o PDF.'
       ]
     },
     {
@@ -7321,13 +7323,20 @@
       var aParcelar = Math.max(cheio - entrada, 0);
       var planos = [];
       for (var v = 1; v <= ateDireto; v++) {
-        // À vista sai pelo preço do orçamento, limpo. O acréscimo é o custo
-        // de parcelar; em 1x não há o que parcelar, então cobrar ali faria o
-        // PDF mostrar um valor diferente do que foi combinado.
-        var modoV = v === 1 ? 'nenhum' : (d.modo || 'nenhum');
-        var c = calcularParcelas(aParcelar, v, modoV,
-          d.modo === 'porcento' ? (Number(d.acrescimo) || 0) : inteiro(d.acrescimo),
-          ehData(d.primeira) ? d.primeira : hojeTexto(), 0, 0);
+        // O acréscimo é o preço de esperar: ele conta uma vez para cada
+        // parcela depois da primeira. Em 1x não há espera, então o à vista
+        // sai pelo total do orçamento; daí cada opção sobe um degrau.
+        // Com R$ 100 por parcela: 800 · 900 · 1.000 · 1.100 · 1.200.
+        var esperas = v - 1;
+        var extra = 0;
+        if (d.modo === 'reais') extra = inteiro(d.acrescimo) * esperas;
+        else if (d.modo === 'porcento') {
+          extra = Math.round(aParcelar * (Number(d.acrescimo) || 0) / 100) * esperas;
+        }
+        // O total do degrau é dividido em parcelas iguais, que é o que o
+        // quadro do PDF promete na coluna "cada parcela".
+        var c = calcularParcelas(aParcelar, v, 'nenhum', 0,
+          ehData(d.primeira) ? d.primeira : hojeTexto(), extra > 0 ? aParcelar + extra : 0, 0);
         planos.push({ vezes: v, entrada: entrada, itens: c.itens,
                       total: entrada + c.total, acrescimo: c.acrescimoTotal });
       }

@@ -14,14 +14,22 @@ await c.nth(0).fill('Vitor'); await c.nth(1).fill('x71'+Date.now() + '-' + proce
 await page.click('.btn-dourado:has-text("Continuar")'); await page.waitForTimeout(400);
 await page.click('.btn-dourado:has-text("Continuar")'); await page.waitForTimeout(400);
 await page.click('.btn-dourado:has-text("Criar minha conta")'); await page.waitForTimeout(3000);
+const folhaFechou = () => page.waitForFunction(
+  () => !document.getElementById('folha').classList.contains('aberta'), null, { timeout: 20000 });
 for (const nome of ['C6 Bank','Nubank']) {
   await page.click('#telaInicio .cartao:has-text("Contas") .cartao-acao'); await page.waitForTimeout(600);
   await folha().locator('input.entrada[type=text]').first().fill(nome);
-  await page.click('#folha .btn-ouro:has-text("Salvar")'); await page.waitForTimeout(1000);
+  await page.click('#folha .btn-ouro:has-text("Salvar")');
+  await folhaFechou();
+  await page.locator('#telaInicio .cartao:has-text("Contas")').getByText(nome).first().waitFor({ timeout: 20000 });
 }
 // lança: saída no C6 e entrada no Nubank, mesma data e valor (transferência)
 // mais um par que NÃO é transferência, e um gasto solto
 async function lancar(tipo, valor, desc, conta) {
+  // O Início não lista as descrições, então o sinal de que o lançamento
+  // entrou é a tela mudar (os totais sobem). Esperar por isso, e não por um
+  // tempo fixo, é o que segura o teste com doze rodando ao mesmo tempo.
+  const antes = await page.textContent('#telaInicio');
   await page.click('#fab'); await page.waitForTimeout(700);
   if (tipo === 'entrada') { await page.click('#folha .segmentos button:has-text("Entrada")'); await page.waitForTimeout(600); }
   await folha().locator('input[inputmode=numeric]').first().fill(valor);
@@ -36,7 +44,10 @@ async function lancar(tipo, valor, desc, conta) {
       break;
     }
   }
-  await page.click('#folha .btn-ouro:has-text("Salvar")'); await page.waitForTimeout(1100);
+  await page.click('#folha .btn-ouro:has-text("Salvar")');
+  await folhaFechou();
+  await page.waitForFunction(
+    (a) => document.getElementById('telaInicio').textContent !== a, antes, { timeout: 20000 });
 }
 await lancar('saida', '100000', 'Pix enviado para mim mesmo', 'C6 Bank');
 await lancar('entrada', '100000', 'Pix recebido de mim mesmo', 'Nubank');
