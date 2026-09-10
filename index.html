@@ -1571,7 +1571,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.1.0';
+  var VERSAO = '5.2.0';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1580,6 +1580,18 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '5.2.0',
+      data: '2026-09-10',
+      itens: [
+        'A fatura do cartão parou de ser contada duas vezes no app inteiro. Antes, quem tinha as compras do cartão lançadas via o gasto uma vez nas compras e outra no pagamento da fatura — e o mês parecia bem pior do que foi.',
+        '"Despesas" agora é o que você gastou de verdade: as compras do cartão contam, o pagamento da fatura não, porque ele só quita um gasto que já foi contado. Vale no Início, na rosquinha, no orçamento (geral e por categoria), em Transações e nos relatórios.',
+        'O cartão "Fluxo de caixa" ficou sendo o que o nome diz: o dinheiro que entrou e saiu das contas. Ali o pagamento da fatura conta, e a compra no cartão entra quando a fatura é paga. São duas perguntas diferentes e a tela explica a diferença.',
+        'O lançamento da fatura continua na lista de Transações, com o valor certo, agora marcado com "não conta como despesa" — assim dá para conferir em vez de achar que sumiu.',
+        'Se você importou o extrato do banco mas não as compras do cartão, nada muda: sem as compras lançadas, o pagamento da fatura é o único registro do gasto e continua contando normalmente.',
+        'O relatório de fluxo de caixa mostra os dois números lado a lado, cada um com o seu nome e a explicação de por que são diferentes.'
+      ]
+    },
     {
       versao: '5.1.0',
       data: '2026-09-10',
@@ -2857,6 +2869,7 @@
   var filaSalvar = Promise.resolve();
 
   function salvar() {
+    limparCacheDeFatura();
     if (!sessao) return;
 
     // Com servidor configurado, a identidade é a da nuvem e o cofre local
@@ -3828,28 +3841,120 @@
     return estado.lancamentos.filter(function (l) { return l.data.indexOf(pre) === 0; });
   }
 
-  function totaisDoMes(ano, mes) {
-    var entradas = 0, saidas = 0;
-    lancamentosDoMes(ano, mes).forEach(function (l) {
-      if (l.tipo === 'entrada') entradas += l.valor;
-      else if (l.tipo === 'saida') saidas += l.valor;
-    });
-    return { entradas: entradas, saidas: saidas, saldo: entradas - saidas };
+  // ---- fatura do cartão: uma regra só, valendo para o app inteiro ----------
+  //
+  // Pagar a fatura tira dinheiro da conta, mas não é um gasto novo: o gasto
+  // foram as compras que entraram naquela fatura. Somar os dois é somar duas
+  // vezes. Daí existirem duas leituras legítimas e diferentes do mesmo mês:
+  //
+  //   consumo — quanto foi gasto de fato: as compras contam, a fatura não
+  //   caixa   — quanto saiu das contas: a fatura conta, as compras ainda não
+  //
+  // "Despesas", orçamento, rosca e relatórios por categoria são consumo.
+  // O cartão "Fluxo de caixa" é caixa, e diz isso na tela.
+  var TEXTO_FATURA = /(pag(amento|to)?\.?\s*(de\s*)?\.?\s*fat(ura)?|fat(ura)?\s*(do\s*)?cart|pgto\s*fat)/;
+
+  function ehPagamentoDeFatura(l) {
+    if (l.tipo !== 'saida') return false;
+    if (ehCartao(achar(estado.contas, l.contaId))) return false;
+    return TEXTO_FATURA.test(semAcentoSimples(l.descricao || ''));
   }
 
-  function gastosPorCategoria(ano, mes, tipo) {
+  // Só dá para descontar a fatura quando as compras do cartão estão
+  // lançadas. Sem elas o pagamento é o único retrato do gasto, e fica.
+  function temComprasDeCartao(lista) {
+    var ids = {};
+    cartoes().forEach(function (c) { ids[c.id] = c; });
+    for (var i = 0; i < lista.length; i++) {
+      if (lista[i].tipo === 'saida' && ids[lista[i].contaId]) return true;
+    }
+    return false;
+  }
+
+  // A resposta por mês é a mesma para dezenas de linhas na tela, então fica
+  // guardada até o próximo desenho ou a próxima gravação.
+  var cacheDeCompras = {};
+
+  function limparCacheDeFatura() { cacheDeCompras = {}; }
+
+  function temComprasNoMes(ano, mes) {
+    var chave = ano + '-' + mes;
+    if (!(chave in cacheDeCompras)) {
+      cacheDeCompras[chave] = temComprasDeCartao(lancamentosDoMes(ano, mes));
+    }
+    return cacheDeCompras[chave];
+  }
+
+  // A visão de consumo de uma lista: a mesma lista sem as faturas pagas,
+  // mais o que saiu dela e por quê.
+  function visaoDeConsumo(lista) {
+    if (!temComprasDeCartao(lista)) {
+      return { lista: lista, faturasPagas: [], valorDasFaturas: 0, modo: 'fatura' };
+    }
+    var faturas = [], valor = 0;
+    var fora = lista.filter(function (l) {
+      if (!ehPagamentoDeFatura(l)) return true;
+      faturas.push(l);
+      valor += l.valor;
+      return false;
+    });
+    return { lista: fora, faturasPagas: faturas, valorDasFaturas: valor, modo: 'compras' };
+  }
+
+  // Este lançamento entra no total de despesas do mês dele? Serve para
+  // marcar a linha em Transações sem recalcular o mês inteiro por linha.
+  function contaComoDespesa(l) {
+    if (l.tipo !== 'saida') return false;
+    if (!ehPagamentoDeFatura(l)) return true;
+    return !temComprasNoMes(+l.data.slice(0, 4), +l.data.slice(5, 7) - 1);
+  }
+
+  // Saída de dinheiro de verdade: o que deixou uma conta. A compra no cartão
+  // ainda não saiu de lugar nenhum — ela sai quando a fatura é paga.
+  function ehSaidaDeCaixa(l) {
+    return l.tipo === 'saida' && !ehCartao(achar(estado.contas, l.contaId));
+  }
+
+  function totaisDaLista(lista) {
+    var v = visaoDeConsumo(lista);
+    var entradas = 0, saidas = 0, saidasCaixa = 0;
+    lista.forEach(function (l) {
+      if (l.tipo === 'entrada') entradas += l.valor;
+      else if (ehSaidaDeCaixa(l)) saidasCaixa += l.valor;
+    });
+    v.lista.forEach(function (l) { if (l.tipo === 'saida') saidas += l.valor; });
+    return {
+      entradas: entradas, saidas: saidas, saldo: entradas - saidas,
+      saidasCaixa: saidasCaixa, saldoCaixa: entradas - saidasCaixa,
+      faturasPagas: v.faturasPagas, valorDasFaturas: v.valorDasFaturas, modo: v.modo
+    };
+  }
+
+  function porCategoriaDaLista(lista, tipo) {
     var lado = tipo === 'entrada' ? 'entrada' : 'saida';
+    var base = lado === 'saida'
+      ? visaoDeConsumo(lista)
+      : { lista: lista, faturasPagas: [], valorDasFaturas: 0, modo: 'fatura' };
     var mapa = {};
     var total = 0;
-    lancamentosDoMes(ano, mes).forEach(function (l) {
+    base.lista.forEach(function (l) {
       if (l.tipo !== lado) return;
       mapa[l.categoria] = (mapa[l.categoria] || 0) + l.valor;
       total += l.valor;
     });
-    var lista = Object.keys(mapa).map(function (nome) {
+    var ordenada = Object.keys(mapa).map(function (nome) {
       return { nome: nome, valor: mapa[nome] };
     }).sort(function (a, b) { return b.valor - a.valor; });
-    return { lista: lista, total: total };
+    return {
+      lista: ordenada, total: total,
+      faturasPagas: base.faturasPagas, valorDasFaturas: base.valorDasFaturas, modo: base.modo
+    };
+  }
+
+  function totaisDoMes(ano, mes) { return totaisDaLista(lancamentosDoMes(ano, mes)); }
+
+  function gastosPorCategoria(ano, mes, tipo) {
+    return porCategoriaDaLista(lancamentosDoMes(ano, mes), tipo);
   }
 
   function alocacaoPorClasse() {
@@ -5722,24 +5827,32 @@
     // Fluxo de caixa
     var cFluxo = cartao();
     cFluxo.appendChild(topoDeCartao('Fluxo de caixa', 'Ver todas', function () { irPara('transacoes'); }));
-    cFluxo.appendChild(no('div', 'valorao pequeno num ' + (t.saldo >= 0 ? 'verde' : 'vermelho'), emReais(t.saldo)));
+    // Este cartão é sobre dinheiro que entrou e saiu das contas. A fatura
+    // paga conta aqui; a compra no cartão conta em Despesas. São perguntas
+    // diferentes, e por isso os números podem não bater — está explicado.
+    cFluxo.appendChild(no('div', 'valorao pequeno num ' + (t.saldoCaixa >= 0 ? 'verde' : 'vermelho'), emReais(t.saldoCaixa)));
     cFluxo.appendChild(no('div', 'linha-nota', 'líquido ' + faixa.rotulo));
 
     var barra = no('div', 'barra-dupla');
     barra.style.marginTop = '14px';
-    var soma = t.entradas + t.saidas;
+    var soma = t.entradas + t.saidasCaixa;
     var iE = no('i'); iE.style.width = pct(t.entradas, soma) + '%'; iE.style.background = 'var(--verde)';
-    var iS = no('i'); iS.style.width = pct(t.saidas, soma) + '%'; iS.style.background = 'var(--vermelho)';
+    var iS = no('i'); iS.style.width = pct(t.saidasCaixa, soma) + '%'; iS.style.background = 'var(--vermelho)';
     juntar(barra, iE, iS);
     cFluxo.appendChild(barra);
 
     var duas = no('div', 'duas');
     duas.style.marginTop = '12px';
     duas.appendChild(parDeValores('Entradas', emReais(t.entradas), 'verde'));
-    var dir = parDeValores('Saídas', emReais(t.saidas), 'vermelho');
+    var dir = parDeValores('Saídas', emReais(t.saidasCaixa), 'vermelho');
     dir.style.textAlign = 'right';
     duas.appendChild(dir);
     cFluxo.appendChild(duas);
+    if (t.saidasCaixa !== t.saidas) {
+      cFluxo.appendChild(no('div', 'linha-nota',
+        'O que saiu das contas. A compra no cartão sai daqui quando a fatura é paga — ' +
+        'o gasto em si aparece em Despesas.'));
+    }
     tela.appendChild(cFluxo);
 
     // Distribuição, das saídas ou das entradas
@@ -5769,6 +5882,11 @@
       if (outros > 0) seg.push({ nome: 'Demais', valor: outros, cor: '#4B5A6B' });
       cGastos.appendChild(rosca(seg, gastos.total, ehEntrada ? 'Receitas' : 'Gastos'));
       cGastos.appendChild(legenda(seg, gastos.total));
+    }
+    if (gastos.valorDasFaturas > 0) {
+      cGastos.appendChild(no('div', 'linha-nota',
+        emReais(gastos.valorDasFaturas) + ' de fatura paga ficou de fora: as compras do cartão ' +
+        'já estão contadas aqui, uma vez só.'));
     }
     tela.appendChild(cGastos);
 
@@ -9308,27 +9426,11 @@
   function lancamentosDoPeriodo() { return lancamentosNaFaixa(); }
 
   function totaisNaFaixa(faixa) {
-    var entradas = 0, saidas = 0;
-    lancamentosNaFaixa(faixa).forEach(function (l) {
-      if (l.tipo === 'entrada') entradas += l.valor;
-      else if (l.tipo === 'saida') saidas += l.valor;
-    });
-    return { entradas: entradas, saidas: saidas, saldo: entradas - saidas };
+    return totaisDaLista(lancamentosNaFaixa(faixa));
   }
 
   function gastosNaFaixa(faixa, tipo) {
-    var lado = tipo === 'entrada' ? 'entrada' : 'saida';
-    var mapa = {};
-    var total = 0;
-    lancamentosNaFaixa(faixa).forEach(function (l) {
-      if (l.tipo !== lado) return;
-      mapa[l.categoria] = (mapa[l.categoria] || 0) + l.valor;
-      total += l.valor;
-    });
-    var lista = Object.keys(mapa).map(function (nome) {
-      return { nome: nome, valor: mapa[nome] };
-    }).sort(function (a, b) { return b.valor - a.valor; });
-    return { lista: lista, total: total };
+    return porCategoriaDaLista(lancamentosNaFaixa(faixa), tipo);
   }
 
   // ---------- Escolher o período ----------
@@ -9478,6 +9580,15 @@
       d.appendChild(no('div', 'v ' + item[2], item[0] === 'Lançamentos' ? String(item[1]) : emReais(item[1])));
       gradeResumo.appendChild(d);
     });
+    // Por que a soma da tela não bate com a conta de cabeça: a fatura paga
+    // está listada, mas não entra em "Saídas" para não contar duas vezes.
+    if (totais.valorDasFaturas > 0) {
+      var notaFat = no('div', 'linha-nota',
+        'Fora de "Saídas": ' + emReais(totais.valorDasFaturas) + ' de fatura paga. ' +
+        'O gasto já está nas compras do cartão.');
+      notaFat.style.marginTop = '10px';
+      resumo.appendChild(notaFat);
+    }
     resumo.appendChild(gradeResumo);
     resumo.appendChild(no('div', 'linha-nota', 'De ' + dataBr(faixa.de) + ' a ' + dataBr(faixa.ate) + '.'));
     alvo.appendChild(resumo);
@@ -9496,6 +9607,9 @@
     } else {
       var conta = achar(estado.contas, l.contaId);
       sub = l.categoria + (conta ? ' · ' + conta.nome : '');
+      // A linha continua aqui, com o valor certo — ela só não entra no
+      // total de despesas, e a pessoa merece saber disso olhando.
+      if (l.tipo === 'saida' && !contaComoDespesa(l)) sub += ' · não conta como despesa';
     }
 
     juntar(b,
@@ -10330,17 +10444,6 @@
     return Object.keys(vistos).sort();
   }
 
-  // Pagar a fatura do cartão tira dinheiro da conta, mas não é um gasto
-  // novo: o gasto foram as compras que entraram naquela fatura. Contar os
-  // dois é contar duas vezes.
-  var TEXTO_FATURA = /(pag(amento|to)?\.?\s*(de\s*)?\.?\s*fat(ura)?|fat(ura)?\s*(do\s*)?cart|pgto\s*fat)/;
-
-  function ehPagamentoDeFatura(l) {
-    if (l.tipo !== 'saida') return false;
-    if (ehCartao(achar(estado.contas, l.contaId))) return false;
-    return TEXTO_FATURA.test(semAcentoSimples(l.descricao || ''));
-  }
-
   // As compras lançadas dentro dos cartões, por mês.
   function comprasNoCartao(ano, mes) {
     var ids = {};
@@ -10352,36 +10455,11 @@
     return fora;
   }
 
-  // A base de gastos de um mês, já sem contar duas vezes.
-  //
-  // Quando existem compras lançadas no cartão, o pagamento da fatura vira
-  // uma transferência e sai da conta de consumo. Quando não existem — a
-  // pessoa importou o extrato do banco mas não a fatura —, o pagamento é o
-  // único retrato que temos, então ele fica e o app avisa.
+  // A base de gastos de um mês, já sem contar duas vezes. É a mesma regra
+  // do app inteiro (gastosPorCategoria); aqui só ganha um nome próprio
+  // porque a análise fala dela o tempo todo.
   function baseDeGastos(ano, mes) {
-    var compras = comprasNoCartao(ano, mes);
-    var temCompras = compras.length > 0;
-    var mapa = {}, total = 0, faturas = [], pulados = 0;
-
-    lancamentosDoMes(ano, mes).forEach(function (l) {
-      if (l.tipo !== 'saida') return;
-      if (temCompras && ehPagamentoDeFatura(l)) {
-        faturas.push(l);
-        pulados += l.valor;
-        return;
-      }
-      mapa[l.categoria] = (mapa[l.categoria] || 0) + l.valor;
-      total += l.valor;
-    });
-
-    var lista = Object.keys(mapa).map(function (n) { return { nome: n, valor: mapa[n] }; })
-      .sort(function (a, b) { return b.valor - a.valor; });
-
-    return {
-      total: total, lista: lista,
-      faturasPagas: faturas, valorDasFaturas: pulados,
-      modo: temCompras ? 'compras' : 'fatura'
-    };
+    return gastosPorCategoria(ano, mes, 'saida');
   }
 
   // A composição de uma fatura: para onde o dinheiro do cartão foi.
@@ -11473,6 +11551,7 @@
   // ---------- Despacho ----------
 
   function desenhar() {
+    limparCacheDeFatura();
     desenharNavegacao();
     if (telaAtiva === 'inicio') desenharInicio();
     else if (telaAtiva === 'transacoes') desenharTransacoes();
@@ -12534,9 +12613,11 @@
 
   // ---------- Folha: orçamento ----------
 
+  // O teto por categoria mede consumo, igual ao teto geral: a fatura paga
+  // não conta de novo aqui.
   function gastoDaCategoria(nomeCat) {
     var total = 0;
-    lancamentosDoMes(mesAtivo.ano, mesAtivo.mes).forEach(function (l) {
+    visaoDeConsumo(lancamentosDoMes(mesAtivo.ano, mesAtivo.mes)).lista.forEach(function (l) {
       if (l.tipo === 'saida' && l.categoria === nomeCat) total += l.valor;
     });
     return total;
@@ -13042,12 +13123,17 @@
       alvo.appendChild(par('Total investido', emReais(totalInvestido(null))));
       alvo.appendChild(par('Patrimônio líquido', emReais(patrimonio(null))));
 
-      alvo.appendChild(no('h2', null, 'Fluxo do mês'));
-      alvo.appendChild(par('Entradas', emReais(t.entradas), 'verde'));
-      alvo.appendChild(par('Saídas', emReais(t.saidas), 'vermelho'));
+      alvo.appendChild(no('h2', null, 'Resultado do mês'));
+      alvo.appendChild(par('Receitas', emReais(t.entradas), 'verde'));
+      alvo.appendChild(par('Despesas', emReais(t.saidas), 'vermelho'));
       alvo.appendChild(par('Resultado', emReais(t.saldo), t.saldo >= 0 ? 'verde' : 'vermelho'));
       if (t.entradas > 0) {
         alvo.appendChild(par('Taxa de poupança', ((t.saldo / t.entradas) * 100).toFixed(1).replace('.', ',') + '%'));
+      }
+      if (t.valorDasFaturas > 0) {
+        alvo.appendChild(no('p', 'rel-nota',
+          'Não entram em Despesas ' + emReais(t.valorDasFaturas) + ' de fatura de cartão paga neste mês: ' +
+          'as compras que formaram essa fatura já estão contadas acima, uma vez só.'));
       }
 
       if (estado.contas.length) {
@@ -13083,10 +13169,21 @@
     }
 
     if (tipo === 'fluxo') {
-      alvo.appendChild(no('h2', null, 'Resumo'));
+      // Este relatório é sobre dinheiro entrando e saindo das contas, não
+      // sobre consumo. Os dois números aparecem, cada um com seu nome.
+      alvo.appendChild(no('h2', null, 'Movimento das contas'));
       alvo.appendChild(par('Entradas', emReais(t.entradas), 'verde'));
-      alvo.appendChild(par('Saídas', emReais(t.saidas), 'vermelho'));
-      alvo.appendChild(par('Resultado', emReais(t.saldo), t.saldo >= 0 ? 'verde' : 'vermelho'));
+      alvo.appendChild(par('Saídas das contas', emReais(t.saidasCaixa), 'vermelho'));
+      alvo.appendChild(par('Resultado', emReais(t.saldoCaixa), t.saldoCaixa >= 0 ? 'verde' : 'vermelho'));
+      if (t.saidasCaixa !== t.saidas) {
+        alvo.appendChild(no('h2', null, 'Consumo do mês'));
+        alvo.appendChild(par('Despesas', emReais(t.saidas), 'vermelho'));
+        alvo.appendChild(no('p', 'rel-nota',
+          'São duas contas diferentes e as duas estão certas. "Saídas das contas" é o dinheiro ' +
+          'que deixou as contas no mês — a fatura paga entra aqui, a compra no cartão ainda não. ' +
+          '"Despesas" é o que foi gasto de fato — a compra no cartão entra aqui, a fatura paga não, ' +
+          'senão o mesmo gasto seria contado duas vezes.'));
+      }
 
       var itens = lancamentosDoMes(mesAtivo.ano, mesAtivo.mes).slice().sort(function (a, b) {
         return a.data < b.data ? -1 : a.data > b.data ? 1 : (a.criadoEm || 0) - (b.criadoEm || 0);
