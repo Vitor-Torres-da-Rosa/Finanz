@@ -25,9 +25,10 @@ As três últimas versões, cada uma completa: `index.html`, o service worker,
 o manifesto, os ícones e as imagens. Mais que três só engorda o repositório
 sem ajudar.
 
-Cada versão também vira uma etiqueta no git (`v5.0.0`, `v4.7.1`...), então
-o histórico inteiro continua acessível por lá para quem quiser ir mais
-fundo.
+Cada versão também vira uma etiqueta no git aqui do lado de cá. Elas não
+sobem para o GitHub — o acesso desta sessão só deixa mandar branch, não
+etiqueta —, mas o histórico inteiro continua no repositório, um commit por
+versão, para quem quiser ir mais fundo.
 
 ## Como isso é feito
 
