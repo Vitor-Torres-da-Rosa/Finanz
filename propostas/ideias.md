@@ -4,6 +4,22 @@ O que a `/melhorar` pega quando roda sozinha, de cima para baixo. Item que
 virou proposta ganha `[proposto NNNN]`. Recusado ganha `[recusado]` com o
 motivo, para não voltar.
 
+## Achado na auditoria
+
+Varri as cinco telas com dados de borda (valor zero, meta sem alvo, ativo
+sem aporte, conta sem lançamento, orçamento zerado) procurando NaN,
+Infinity, undefined e percentual absurdo: nada. O app aguenta bem esses
+casos, e não há erro de console.
+
+- [proposto 0007] O relatório de IR afirmava "Posição em 31/12" com o ano
+  ainda correndo, mostrando o valor de hoje sob o rótulo de dezembro.
+- A ordenação do histórico de ativos depende do relógio do aparelho:
+  valorAtivoEm percorre o array na ordem em que está e pega o último item
+  com data <= o corte. O array é ordenado ao carregar (backup e servidor) e
+  os acréscimos usam sempre a data de hoje, então na prática fica ordenado.
+  Só quebra se o relógio do celular estiver atrasado. Baixíssima
+  prioridade, mas fica anotado.
+
 ## Bug que dá número errado
 
 - [proposto 0002] A dívida de cartões só cresce. `dividaDeCartoes` soma toda saída lançada
