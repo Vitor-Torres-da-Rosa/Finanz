@@ -5775,14 +5775,17 @@
     estado.pagamentos.forEach(function (p) { pago += p.valor; });
     var atrasados = 0;
     var emAtraso = 0;
+    var juros = 0;
     estado.clientes.forEach(function (c) {
       if (!clienteAtrasado(c.id)) return;
+      var a = atrasoDoCliente(c.id);
       atrasados += 1;
-      emAtraso += atrasoDoCliente(c.id).total;
+      emAtraso += a.total;
+      juros += a.juros;
     });
     return {
       total: total, pago: pago, restante: total - pago,
-      atrasados: atrasados, emAtraso: emAtraso
+      atrasados: atrasados, emAtraso: emAtraso, juros: juros
     };
   }
 
@@ -6588,7 +6591,8 @@
     }
     if (geral.atrasados) {
       var alerta = no('div', 'linha-nota vermelho',
-        geral.atrasados + ' cliente(s) em atraso, somando ' + emReais(geral.emAtraso) + '.');
+        geral.atrasados + ' cliente(s) em atraso, somando ' + emReais(geral.emAtraso) +
+        (geral.juros > 0 ? ' — já com ' + emReais(geral.juros) + ' de juros.' : '.'));
       cResumo.appendChild(alerta);
     }
     tela.appendChild(cResumo);
@@ -7038,6 +7042,17 @@
       });
       cResumo.appendChild(grade);
       cResumo.appendChild(progresso(r.pago, r.total || 1, 'var(--verde)'));
+      // "Falta" sai dos registros menos os pagamentos, e juros de atraso não
+      // são registro: eles apareciam na parcela e na mensagem do WhatsApp,
+      // mas não aqui. Três números para o mesmo cliente na mesma ficha. Não
+      // entram na conta — mexer nisso mexeria no plano de parcelas — mas
+      // param de ficar invisíveis.
+      var atrasoFicha = atrasoDoCliente(id);
+      if (atrasoFicha.juros > 0) {
+        cResumo.appendChild(no('div', 'linha-nota ouro',
+          'Mais ' + emReais(atrasoFicha.juros) + ' de juros pelo atraso, que não entram no total acima. ' +
+          'Com eles, o cliente deve ' + emReais(r.restante + atrasoFicha.juros) + '.'));
+      }
       var proximaData = proximoVencimento(id);
       if (proximaData && r.restante > 0) {
         cResumo.appendChild(no('div', 'linha-nota',
