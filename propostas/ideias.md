@@ -13,6 +13,9 @@ casos, e não há erro de console.
 
 - [proposto 0007] O relatório de IR afirmava "Posição em 31/12" com o ano
   ainda correndo, mostrando o valor de hoje sob o rótulo de dezembro.
+- [proposto 0011] Na importação, dois lançamentos iguais no mesmo dia eram
+  todos marcados como repetidos: bastava existir um igual na conta. Sumia
+  transação de verdade.
 - [proposto 0009] O pagamento de cliente lançado no caixa entrava sempre na
   categoria "Serviços", mesmo vindo de uma venda.
 - [proposto 0010] Registrando o pagamento direto da ficha, o campo
