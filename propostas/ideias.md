@@ -15,7 +15,8 @@ casos, e não há erro de console.
   ainda correndo, mostrando o valor de hoje sob o rótulo de dezembro.
 - [proposto 0009] O pagamento de cliente lançado no caixa entrava sempre na
   categoria "Serviços", mesmo vindo de uma venda.
-- Registrando o pagamento direto da ficha, o campo "Referente a" vem vazio
+- [proposto 0010] Registrando o pagamento direto da ficha, o campo
+  "Referente a" vem vazio
   mesmo quando o cliente tem um único registro em aberto. Podia já vir
   apontado — amarra o pagamento ao registro e faz a categoria sair certa
   sozinha. Mexe em mais coisa que a 0009, então merece proposta própria.
