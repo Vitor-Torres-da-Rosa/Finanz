@@ -6,14 +6,16 @@ export default async function (page) {
     const d = (dia) => h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') +
                        '-' + String(dia).padStart(2, '0');
     const dados = {
-      contas: [{ id: 'cc-p4', nome: 'Banco Inter', tipo: 'Conta corrente', saldoInicial: 500000 }],
-      orcamentos: { geral: 300000, categorias: { 'Alimentação': 80000, 'Transporte': 50000, 'Lazer': 60000 } },
+      contas: [{ id: 'cc-p6', nome: 'Banco Inter', tipo: 'Conta corrente', saldoInicial: 500000 }],
+      orcamentos: { geral: 300000, categorias: { 'Alimentação': 80000, 'Transporte': 50000, 'Lazer': 60000, 'Viagem': 40000 } },
       lancamentos: [
-        { id: 'p4a', tipo: 'saida', valor: 95000, data: d(5), contaId: 'cc-p4',
+        { id: 'p6a', tipo: 'saida', valor: 30000, data: d(5), contaId: 'cc-p6',
           categoria: 'Alimentação', descricao: 'Mercado do mês' },
-        { id: 'p4b', tipo: 'saida', valor: 46000, data: d(6), contaId: 'cc-p4',
+        { id: 'p6e', tipo: 'saida', valor: 72000, data: d(4), contaId: 'cc-p6',
+          categoria: 'Viagem', descricao: 'Passagem' },
+        { id: 'p6b', tipo: 'saida', valor: 46000, data: d(6), contaId: 'cc-p6',
           categoria: 'Transporte', descricao: 'Combustível' },
-        { id: 'p4c', tipo: 'saida', valor: 18000, data: d(7), contaId: 'cc-p4',
+        { id: 'p6c', tipo: 'saida', valor: 18000, data: d(7), contaId: 'cc-p6',
           categoria: 'Lazer', descricao: 'Cinema' }
       ]
     };

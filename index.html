@@ -10647,10 +10647,26 @@
     if (chaves.length) {
       var cCat = cartao();
       cCat.appendChild(topoDeCartao('Por categoria', 'Editar', function () { abrirFolhaOrcamento(); }));
-      chaves.sort().forEach(function (nomeCat) {
+      // Em ordem alfabética, a categoria que estourou fica onde a letra dela
+      // mandar. Quem abre o Planejar quer ver primeiro o que está fora do
+      // lugar, então sobe o que estourou, depois o que está perto, e o
+      // resto segue em ordem — igual ao cliente atrasado, que sobe na lista.
+      function gastoDe(nomeCat) {
+        var g = 0;
+        gastos.lista.forEach(function (x) { if (x.nome === nomeCat) g = x.valor; });
+        return g;
+      }
+      function apertoDe(nomeCat) {
+        var uso = pct(gastoDe(nomeCat), estado.orcamentos.categorias[nomeCat]);
+        return uso > 100 ? 0 : uso > 80 ? 1 : 2;
+      }
+      chaves.sort(function (a, b) {
+        var pa = apertoDe(a), pb = apertoDe(b);
+        if (pa !== pb) return pa - pb;
+        return a.localeCompare(b, 'pt-BR');
+      }).forEach(function (nomeCat) {
         var teto = estado.orcamentos.categorias[nomeCat];
-        var gasto = 0;
-        gastos.lista.forEach(function (g) { if (g.nome === nomeCat) gasto = g.valor; });
+        var gasto = gastoDe(nomeCat);
         var usadoCat = pct(gasto, teto);
         var bloco = no('div');
         bloco.style.marginBottom = '13px';
