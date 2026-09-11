@@ -35,6 +35,9 @@ antes e um de depois, é grande demais — quebre em partes e faça a primeira.
    lugar nenhum, estado vazio sem saída.
 2. **Ramo.** `git checkout -b proposta/NNNN-apelido` a partir do ramo de
    trabalho atual. NNNN é o próximo número livre em `propostas/`.
+   O ramo carrega **só a mudança do app**. Os prints, o `leia.md` e o
+   cenário ficam no ramo de trabalho — senão o índice só enxerga a proposta
+   do ramo em que você está e a página de revisão nasce pela metade.
 3. **Implementar.** Pequeno. Comentário em português explicando o porquê,
    no tom do arquivo.
 4. **Testar.** `node testes/rodar.mjs` inteiro. **Proposta vermelha não
@@ -48,10 +51,16 @@ antes e um de depois, é grande demais — quebre em partes e faça a primeira.
 6. **Escrever.** `propostas/NNNN-apelido/leia.md` com: o que está errado
    hoje, o que a proposta faz, o que ela **não** faz, o risco, e os
    arquivos tocados. Sem enfeite: ele vai ler no celular.
-7. **Publicar para revisão.** `./montar-propostas.sh` refaz o índice.
-   Depois empurre o ramo da proposta e **só a pasta `propostas/`** para o
+7. **Publicar para revisão.** Volte ao ramo de trabalho, traga a pasta da
+   proposta e o cenário para ele, rode `./montar-propostas.sh` e empurre o
+   ramo da proposta. Depois empurre **só a pasta `propostas/`** para o
    `gh-pages`, para ele abrir em `finanz/propostas/` pelo celular.
-8. **Anotar.** Marque o item em `propostas/ideias.md` como proposto.
+8. **Mandar no chat.** `python3 propostas/juntar.py NNNN` faz o `par.png`
+   com o antes e o depois lado a lado. Mande com `SendUserFile` e escreva
+   junto, em cinco linhas no máximo: o que está errado hoje, o que a
+   proposta faz, e o risco. Uma mensagem por proposta, na hora que ela
+   fica pronta — não junte várias no fim.
+9. **Anotar.** Marque o item em `propostas/ideias.md` como proposto.
 
 ## Nunca
 
@@ -71,3 +80,14 @@ antes e um de depois, é grande demais — quebre em partes e faça a primeira.
 - Acabaram as ideias e uma auditoria inteira não achou nada — diga isso e
   pare, em vez de inventar mudança para ter o que entregar.
 - Já há 10 propostas esperando decisão: encheu a fila, pare de produzir.
+
+## Parou, ficou parado
+
+Quando a volta terminar por qualquer motivo — limite da conta, erro, fila
+cheia, `/loop stop` —, **não se rearme sozinho**. Nada de agendar a próxima
+passada, nada de "continuo de onde parei" na mensagem seguinte. O trabalho
+fica onde está, guardado nos ramos e na pasta `propostas/`, e só volta a
+andar quando o Vitor mandar continuar. Ele foi explícito sobre isso.
+
+Ao parar, diga em uma linha: quantas propostas ficaram prontas, quais
+números, e o que seria o próximo item da fila.
