@@ -3784,17 +3784,41 @@
   }
 
   // O que ainda se deve nos cartões, somando tudo o que não foi pago.
+  //
+  // Pagar a fatura tira dinheiro da conta corrente, então o lançamento que
+  // vem do extrato é uma saída de lá — nunca uma entrada no cartão. Sem
+  // contar esse pagamento aqui, a dívida só subia: cada compra somava e
+  // nada nunca abatia. Transferência cujo destino é o cartão abate igual,
+  // que é como fica quando a pessoa lança na mão.
+  //
+  // O abatimento não passa do que foi devido: ninguém paga mais fatura do
+  // que comprou, e sem compra lançada não há fatura para abater.
   function dividaDeCartoes(ate) {
     var cartao = {};
-    var divida = 0;
-    estado.contas.forEach(function (c) { if (ehCartao(c)) { cartao[c.id] = true; divida -= c.saldoInicial; } });
+    var inicial = 0;
+    var temCartao = false;
+    estado.contas.forEach(function (c) {
+      if (!ehCartao(c)) return;
+      cartao[c.id] = true;
+      temCartao = true;
+      inicial -= c.saldoInicial;
+    });
+    if (!temCartao) return 0;
+
+    var compras = 0, creditos = 0, abatido = 0;
     estado.lancamentos.forEach(function (l) {
       if (ate && l.data > ate) return;
-      if (!cartao[l.contaId]) return;
-      if (l.tipo === 'saida') divida += l.valor;
-      else if (l.tipo === 'entrada') divida -= l.valor;
+      if (cartao[l.contaId]) {
+        if (l.tipo === 'saida') compras += l.valor;
+        else if (l.tipo === 'entrada') creditos += l.valor;
+        return;
+      }
+      if (l.tipo === 'transferencia' && cartao[l.contaDestinoId]) { abatido += l.valor; return; }
+      if (ehPagamentoDeFatura(l)) abatido += l.valor;
     });
-    return divida;
+
+    var deveu = inicial + compras - creditos;
+    return deveu - Math.min(abatido, Math.max(deveu, 0));
   }
 
   function valorAtivoEm(ativo, ate) {
