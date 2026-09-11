@@ -1,59 +1,70 @@
 ---
 name: sempre
-description: Liga o trabalho autônomo sem fim no Finanz. Trabalha até o limite da conta acabar, volta sozinho quando o limite reseta, e segue assim por meses até acabarem os limites ou o Vitor mandar parar com /parar.
+description: Liga o trabalho autônomo sem fim no Finanz. Queima a janela de limite inteira, volta no minuto seguinte ao reset, insiste minuto a minuto até conseguir, e segue assim por meses até acabarem os limites ou o Vitor mandar parar com /parar.
 ---
 
 # Trabalhar sempre
 
 O Vitor autorizou: trabalhar sozinho preparando propostas, sem teto de
-quantidade, voltando por conta própria depois de cada reset de limite, por
+quantidade, voltando por conta própria assim que o limite resetar, por
 meses, até os limites acabarem de vez ou ele mandar parar.
 
 Ligar isso é ato dele. Só execute quando ele digitar `/sempre`.
 
-## O que montar
+## Duas peças
 
-São duas peças, e as duas são necessárias:
+**A queima.** `/loop /melhorar` sem intervalo: uma passada emenda na outra
+até o limite bater. É o que aproveita a janela inteira.
 
-1. **A queima** — `/loop /melhorar` sem intervalo. É o que aproveita a
-   janela: uma passada emenda na outra até o limite bater. Se ele não
-   pediu uma cadência específica, é assim.
+**O despertador.** Não é de hora em hora: o horário do reset é um dado que
+dá para ler, então use o dado.
 
-2. **O despertador** — uma Routine de hora em hora, presa a esta sessão,
-   com este texto:
+## O despertador, em detalhe
 
-   > Se a conta ainda estiver no limite, não faça nada e não avise ninguém.
-   > Se já der para trabalhar, retome `/loop /melhorar` do ponto em que
-   > parou, mandando cada proposta no chat conforme ficarem prontas. O
-   > Vitor autorizou isso com `/sempre`; não peça confirmação de novo.
+1. `get_session` (sem `session_id`) devolve, em
+   `external_metadata.rate_limit_info`, o campo `resetsAt` — o instante do
+   reset, em epoch. Leia de lá, sempre. Nunca estime de cabeça.
+2. Agende uma **escada** de despertares com `send_later`, todos nesta
+   sessão, em **reset + 1, 2, 4, 8, 15, 30 e 60 minutos**. Nomeie cada um
+   `finanz-retomar-NN`, para dar para achar e apagar depois.
+3. A escada existe porque o primeiro tiro pode falhar: se a conta ainda
+   estiver bloqueada no minuto seguinte ao reset, aquele despertar não
+   produz turno nenhum e ninguém sobra para reagendar. Com a escada, o
+   próximo degrau tenta de novo sozinho.
+4. Mensagem de cada despertar:
 
-   Crie com `create_trigger`, cron `0 * * * *`, `initiation: human_request`.
-   Sem `create_new_session_on_fire`: tem que cair **nesta** sessão, senão
-   as propostas param de chegar no chat dele.
+   > Retome o `/loop /melhorar` de onde parou, mandando cada proposta no
+   > chat. Se a conta ainda estiver no limite, agende a escada de novo a
+   > partir do `resetsAt` atual e não avise nada. O Vitor autorizou com
+   > `/sempre`; não peça confirmação.
 
-Quando a queima morre por limite, o despertador toca na hora seguinte. Se
-ainda estiver bloqueado, ele não faz nada e tenta de novo na próxima. Na
-primeira hora depois do reset, o trabalho volta sozinho.
+## Ao acordar
+
+1. Se o trabalho **já retomou** num degrau anterior, apague os degraus que
+   sobraram (`list_triggers`, `delete_trigger` nos `finanz-retomar-*`) e
+   não faça mais nada. Despertar repetido não pode virar turno repetido.
+2. Se ainda está bloqueado, leia o `resetsAt` novo e monte a escada de
+   novo. Sem avisar: ele não quer ser acordado por nada.
+3. Se destravou, apague os degraus restantes e volte a queimar.
 
 ## Depois de montar
 
-Diga, em quatro linhas: que está ligado, o id da Routine, que cada proposta
-chega no chat, e que `/parar` desliga tudo. Depois comece a trabalhar — não
-fique esperando.
+Diga, em quatro linhas: que está ligado, a que horas é o próximo reset,
+que cada proposta chega no chat, e que `/parar` desliga tudo. Depois comece
+a trabalhar — não fique esperando.
 
 ## Diga também, uma vez só
 
-Ele merece saber disto antes de sair:
-
-- Isso consome o limite da conta continuamente, inclusive quando ele está
-  dormindo ou trabalhando. É o que ele pediu, mas é bom estar dito.
+- Isso consome o limite da conta continuamente, inclusive de madrugada.
 - O despertador está preso a esta conversa. Se esta sessão for arquivada, o
-  ciclo morre junto e ele precisa religar com `/sempre` numa conversa nova.
+  ciclo morre junto e ele religa com `/sempre` numa conversa nova.
 - Nada é lançado. A fila só cresce até ele decidir pelos números.
 
 ## Nunca
 
 - Nunca lance nada por conta própria, por mais propostas que se acumulem.
 - Nunca recrie o despertador depois de um `/parar`. Parar é parar.
-- Nunca troque a Routine por uma que abre sessão nova: as propostas têm que
-  chegar no chat dele.
+- Nunca troque a escada por uma Routine que abre sessão nova: as propostas
+  têm que chegar no chat dele.
+- Nunca deixe degrau velho para trás: escada de ontem acordando hoje é
+  turno do nada.
