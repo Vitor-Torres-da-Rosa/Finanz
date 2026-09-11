@@ -6,7 +6,7 @@ motivo, para não voltar.
 
 ## Bug que dá número errado
 
-- A dívida de cartões só cresce. `dividaDeCartoes` soma toda saída lançada
+- [proposto 0002] A dívida de cartões só cresce. `dividaDeCartoes` soma toda saída lançada
   no cartão e nunca desconta o pagamento da fatura, porque a importação
   registra esse pagamento como saída da conta corrente e não como
   transferência para o cartão. Quem usa cartão vê uma dívida que não para
