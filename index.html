@@ -9842,8 +9842,14 @@
 
     Object.keys(porDia).sort().reverse().forEach(function (data) {
       var doDia = porDia[data].slice().sort(function (a, b) { return (b.criadoEm || 0) - (a.criadoEm || 0); });
+      // O total do dia usa a mesma régua do total de "Saídas" do período:
+      // o pagamento de fatura não entra, porque as compras que formaram
+      // aquela fatura já entraram. Somando por critérios diferentes, o
+      // cabeçalho do dia contradizia o resumo lá embaixo, na mesma tela.
       var totalDia = doDia.reduce(function (s, l) {
-        return s + (l.tipo === 'entrada' ? l.valor : l.tipo === 'saida' ? -l.valor : 0);
+        if (l.tipo === 'entrada') return s + l.valor;
+        if (l.tipo === 'saida' && contaComoDespesa(l)) return s - l.valor;
+        return s;
       }, 0);
 
       var cab = no('div', 'dia-cabecalho');
