@@ -1571,7 +1571,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.3.0';
+  var VERSAO = '5.2.2';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1580,15 +1580,6 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
-    {
-      versao: '5.3.0',
-      data: '2026-09-11',
-      itens: [
-        'O acréscimo do parcelamento de cliente passa a seguir a mesma regra do orçamento: ele conta uma vez para cada parcela depois da primeira. R$ 1.000,00 com R$ 100,00 por parcela agora dá R$ 1.000,00 à vista, R$ 1.100,00 em 2x, R$ 1.200,00 em 3x e R$ 1.300,00 em 4x. Antes o à vista já saía R$ 1.100,00 e o 4x chegava a R$ 1.400,00.',
-        'Apagar o parcelamento agora leva junto o registro "Acréscimo do parcelamento". Ele só existia por causa das parcelas; ficando para trás, continuava cobrando sozinho. A confirmação diz o valor que vai sair junto.',
-        'Escrevendo direto no "Total a cobrar", sem usar o campo de acréscimo por parcela, o app continua criando o registro do acréscimo sozinho — e à vista ele se chama "Acréscimo sobre o valor combinado", em vez de falar em parcelamento.'
-      ]
-    },
     {
       versao: '5.2.2',
       data: '2026-09-10',
