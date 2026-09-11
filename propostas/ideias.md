@@ -31,8 +31,17 @@ motivo, para não voltar.
 
 - [proposto 0001] O lançamento que não conta como despesa é marcado com
   texto corrido no subtítulo; junto com o resto da linha vira uma frase só.
-- Estado vazio de Investimentos não tem botão para o primeiro passo.
-- Nos cartões de conta, o nome longo corta sem reticência.
-- No orçamento por categoria, a que estourou fica perdida na ordem
-  alfabética; podia subir para o topo, como o cliente atrasado sobe na
-  lista de clientes.
+- [proposto 0006] No orçamento por categoria, a que estourou fica perdida
+  na ordem alfabética; podia subir para o topo, como o cliente atrasado
+  sobe na lista de clientes.
+
+## Ideias que não existiam
+
+Estas eu tinha escrito de memória e fui conferir no código: são falsas.
+Fica o registro para eu não voltar a propor, e a lição de semear a fila
+com o que foi visto, não com o que foi lembrado.
+
+- [falsa] "Estado vazio de Investimentos não tem botão." Tem: o botão
+  "Cadastrar primeiro ativo" já está lá.
+- [falsa] "Nome longo corta sem reticência nos cartões de conta." A regra
+  .linha-titulo já tem text-overflow: ellipsis.
