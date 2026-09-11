@@ -128,6 +128,48 @@ conferir('12. à vista, o acréscimo não se chama "do parcelamento"',
   /Acréscimo sobre o valor combinado/.test(avista) && !/Acréscimo do parcelamento em 1x/.test(avista));
 await page.screenshot({ path: dir+'/y14-avista.png', fullPage: true });
 
+// --- só aumentar o "Valor a combinar" acima do registro também é acréscimo ---
+// Sem isso a ficha ficava com as parcelas somando mais que o total do cliente:
+// 4 de R$ 337,50 = R$ 1.350,00 contra um Total de R$ 1.000,00.
+await page.click('#folha .aba-cliente button:has-text("Parcelas")'); await page.waitForTimeout(900);
+await page.click('#folha .btn-perigo:has-text("Apagar a")'); await page.waitForTimeout(900);
+await page.click('#dialogoAcoes button:has-text("Apagar tudo")'); await page.waitForTimeout(2000);
+await page.click('#folha .btn-ouro:has-text("Combinar parcelas")'); await page.waitForTimeout(1200);
+const campoValor = page.locator('#folha .campo:has-text("Valor a combinar") input');
+await campoValor.fill(''); await campoValor.fill('135000');
+await page.waitForTimeout(600);
+await page.click('#folha .campo:has-text("Em quantas vezes") .selecao'); await page.waitForTimeout(600);
+await page.click('#escolhaLista .escolha-item:has-text("4x")'); await page.waitForTimeout(800);
+const resumoMaior = limpo(await page.textContent('#folha .cartao'));
+conferir('13. o resumo avisa do acréscimo antes de confirmar',
+  /Acréscimo de R\$ 350,00 sobre os R\$ 1\.000,00/.test(resumoMaior));
+await page.click('#folha .btn-ouro:has-text("Confirmar parcelamento")'); await page.waitForTimeout(900);
+await page.click('#dialogoAcoes button:has-text("Confirmar")'); await page.waitForTimeout(2000);
+const fichaMaior = limpo(await page.textContent('#folha'));
+console.log('ficha:', fichaMaior.slice(0, 120));
+conferir('14. o total do cliente passou a bater com as parcelas (R$ 1.350,00)',
+  /TotalR\$ 1\.350,00/.test(fichaMaior), (fichaMaior.match(/TotalR\$ [\d.,]+/) || ['?'])[0]);
+await page.click('#folha .aba-cliente button:has-text("Registros")'); await page.waitForTimeout(900);
+const regMaior = limpo(await page.textContent('#folha'));
+conferir('15. a diferença virou registro de R$ 350,00',
+  /Acréscimo do parcelamento em 4x/.test(regMaior) && /350,00/.test(regMaior));
+conferir('16. não sobrou "Acertar as parcelas" para desencontro',
+  !/Acertar as parcelas/.test(limpo(await page.textContent('#folha'))));
+await page.screenshot({ path: dir+'/y15-valor-maior.png', fullPage: true });
+
+// --- parcelar só uma parte do registro não pode virar acréscimo ---
+await page.click('#folha .aba-cliente button:has-text("Parcelas")'); await page.waitForTimeout(900);
+await page.click('#folha .btn-perigo:has-text("Apagar a")'); await page.waitForTimeout(900);
+await page.click('#dialogoAcoes button:has-text("Apagar tudo")'); await page.waitForTimeout(2000);
+await page.click('#folha .btn-ouro:has-text("Combinar parcelas")'); await page.waitForTimeout(1200);
+const campoParcial = page.locator('#folha .campo:has-text("Valor a combinar") input');
+await campoParcial.fill(''); await campoParcial.fill('40000');
+await page.waitForTimeout(800);
+const resumoParcial = limpo(await page.textContent('#folha .cartao'));
+conferir('17. parcelar parte do registro não inventa acréscimo nem desconto',
+  !/Acréscimo de/.test(resumoParcial) && !/Desconto de/.test(resumoParcial),
+  resumoParcial.slice(0, 80));
+
 await browser.close();
 if (falhas) { console.log('\n' + falhas + ' verificação(ões) falharam'); process.exit(1); }
 console.log('\ntudo certo: escada do acréscimo e registro amarrado ao parcelamento');

@@ -1571,7 +1571,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.3.0';
+  var VERSAO = '5.3.1';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1580,6 +1580,16 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '5.3.1',
+      data: '2026-09-11',
+      itens: [
+        'Conserto do que faltou na 5.3.0: aumentar o "Valor a combinar" acima do que o cliente deve também é acréscimo, e agora vira registro na ficha. Antes, um registro de R$ 1.000,00 parcelado em 4x de R$ 337,50 deixava a ficha com Total de R$ 1.000,00 e parcelas somando R$ 1.350,00 — e o app ainda oferecia "Acertar as parcelas".',
+        'A régua do acréscimo passou a ser o que está registrado, não o que foi digitado: o valor do registro escolhido em "Referente a" ou, sem registro escolhido, o que o cliente deve e ainda não foi parcelado.',
+        'O resumo avisa antes de confirmar: "Acréscimo de R$ 350,00 sobre os R$ 1.000,00 que o cliente já deve. Vai entrar como um registro novo na ficha."',
+        'Parcelar só uma parte do que o cliente deve continua não inventando acréscimo nem desconto.'
+      ]
+    },
     {
       versao: '5.3.0',
       data: '2026-09-11',
@@ -8806,6 +8816,31 @@
         );
       }
 
+      // A régua do acréscimo é o que já está registrado, não o que foi
+      // digitado. Subir o "valor a combinar" acima do que o cliente deve
+      // cobra a mais do mesmo jeito que um acréscimo por parcela, e sem
+      // contar isso a ficha ficava com as parcelas somando mais que o total
+      // do cliente — e ainda oferecendo "Acertar as parcelas".
+      //
+      // Com um registro escolhido, a régua é o valor dele. Sem registro
+      // escolhido, é o que o cliente tem registrado e ainda não foi
+      // parcelado. Sem nada registrado não há régua: aí o parcelamento não
+      // é acréscimo de coisa nenhuma e o app não inventa registro.
+      function referenciaDoCombinado() {
+        var sv = campoServico.value ? achar(estado.servicos, campoServico.value) : null;
+        if (sv) return sv.valor;
+        var registrado = servicosDoCliente(clienteId)
+          .reduce(function (soma, x) { return soma + x.valor; }, 0);
+        var parcelado = parcelasDoCliente(clienteId)
+          .reduce(function (soma, x) { return soma + x.valor; }, 0);
+        return Math.max(registrado - parcelado, 0);
+      }
+
+      function acrescimoACobrar(c) {
+        var referencia = referenciaDoCombinado();
+        return referencia > 0 ? Math.max(c.total - referencia, 0) : 0;
+      }
+
       function pintarResumo() {
         resumo.textContent = '';
         var base = digitosParaCentavos(campoValorEl.value);
@@ -8832,9 +8867,14 @@
             ' e a última de ' + emReais(ultimo);
         }
         resumo.appendChild(no('div', 'linha-nota', detalhe));
-        if (c.acrescimoTotal > 0) {
+        var extra = acrescimoACobrar(c);
+        if (extra > 0) {
+          var svRef = campoServico.value ? achar(estado.servicos, campoServico.value) : null;
           resumo.appendChild(no('div', 'linha-nota ouro',
-            'Acréscimo de ' + emReais(c.acrescimoTotal) + ' sobre os ' + emReais(base) + ' combinados.'));
+            'Acréscimo de ' + emReais(extra) + ' sobre os ' +
+            emReais(referenciaDoCombinado()) +
+            (svRef ? ' de "' + svRef.nome + '"' : ' que o cliente já deve') +
+            '. Vai entrar como um registro novo na ficha.'));
         } else if (c.acrescimoTotal < 0) {
           resumo.appendChild(no('div', 'linha-nota verde',
             'Desconto de ' + emReais(-c.acrescimoTotal) + ' sobre os ' + emReais(base) + ' combinados.'));
@@ -8896,10 +8936,11 @@
         var c = contas();
 
         var ultimaP = c.itens[c.itens.length - 1];
+        var extraACobrar = acrescimoACobrar(c);
         perguntar({
           titulo: 'Confirmar ' + c.itens.length + 'x de ' + emReais(c.itens[0].valor) + '?',
           texto: 'Total de ' + emReais(c.total) +
-            (c.acrescimoTotal > 0 ? ', com ' + emReais(c.acrescimoTotal) + ' de acréscimo' : '') +
+            (extraACobrar > 0 ? ', com ' + emReais(extraACobrar) + ' de acréscimo' : '') +
             (c.itens.length > 1 && ultimaP.valor !== c.itens[0].valor
               ? '. A última fica em ' + emReais(ultimaP.valor) : '') +
             '. Primeira em ' + dataBr(c.itens[0].vencimento) +
@@ -8926,13 +8967,13 @@
           // O acréscimo é dinheiro a mais a receber: entra como registro
           // próprio, seja ele do acréscimo por parcela ou do total escrito
           // na mão. À vista não há parcelamento, então o nome muda.
-          if (c.acrescimoTotal > 0) {
+          if (extraACobrar > 0) {
             estado.servicos.push({
               id: novoId(), clienteId: clienteId,
               nome: c.itens.length > 1
                 ? 'Acréscimo do parcelamento em ' + c.itens.length + 'x'
                 : 'Acréscimo sobre o valor combinado',
-              tipo: TIPO_PADRAO, valor: c.acrescimoTotal,
+              tipo: TIPO_PADRAO, valor: extraACobrar,
               data: c.itens[0].vencimento, obs: '', criadoEm: Date.now()
             });
           }
