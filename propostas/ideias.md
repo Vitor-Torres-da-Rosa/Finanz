@@ -18,8 +18,12 @@ motivo, para não voltar.
 ## Falta funcionalidade
 
 - Não dá para marcar uma parcela como perdoada ou renegociada: ou ela é
-  paga, ou fica devendo para sempre.
-- Orçamento por categoria não avisa quando estoura — só mostra a barra.
+  paga, ou fica devendo para sempre. **Não cabe numa proposta**: precisa de
+  coluna nova no banco e de migração que o Vitor tem que rodar à mão, e
+  proposta é coisa que ele aceita só pelo número. Assunto para uma conversa
+  com ele, não para uma passada sozinho.
+- [proposto 0004] Orçamento por categoria não avisa quando estoura — só
+  mostra a barra.
 - O relatório de IR existe, mas não separa o que é dedutível.
 
 ## Acabamento
@@ -28,3 +32,6 @@ motivo, para não voltar.
   texto corrido no subtítulo; junto com o resto da linha vira uma frase só.
 - Estado vazio de Investimentos não tem botão para o primeiro passo.
 - Nos cartões de conta, o nome longo corta sem reticência.
+- No orçamento por categoria, a que estourou fica perdida na ordem
+  alfabética; podia subir para o topo, como o cliente atrasado sobe na
+  lista de clientes.
