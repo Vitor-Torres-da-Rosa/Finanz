@@ -32,8 +32,33 @@
 </head>
 <body>
 <h1>FINANZ · PROPOSTAS</h1>
-<p class="sub">Nada esperando decisão.</p>
-<div class="vazio">Sem propostas na fila. Tudo o que foi preparado já foi decidido.</div>
+<p class="sub">1 esperando a sua decisão · nada disso está no ar.</p>
+<div class="p">
+  <div class="n">Proposta 0001</div>
+  <div class="t">O aviso da fatura vira etiqueta, em vez de sumir no meio da linha</div>
+  <div class="par">
+    <figure><figcaption>Antes</figcaption><img src="0001-selo-nao-conta/antes.png" alt="antes"></figure>
+    <figure><figcaption>Depois</figcaption><img src="0001-selo-nao-conta/depois.png" alt="depois"></figure>
+  </div>
+  <div class="leia">
+Hoje o aviso de que um lançamento não entra no total de despesas é emendado
+no subtítulo, depois da categoria e da conta. Numa tela de celular a linha
+estoura e o aviso é cortado: fica "Outros · C6 Bank · não conta …", que é
+justamente a parte que importa sendo escondida.
+
+A proposta tira esse texto do subtítulo e põe embaixo, como etiqueta
+discreta, do mesmo jeito que a etiqueta "cai hoje" da lista de clientes.
+
+O que ela NÃO faz: não muda nenhuma conta. O valor, o total de despesas e a
+regra de quando um lançamento conta continuam idênticos — é só onde o aviso
+aparece.
+
+Risco: baixo. Mexe em uma função de desenho (linhaLancamento) e acrescenta
+uma classe de estilo. A suíte inteira passou, 47/47, sem ajuste em teste.
+
+Arquivos: index.html (linhaLancamento e uma regra .etiqueta.fora).
+  </div>
+</div>
 <div class="como">
   Para aceitar, diga os números na conversa: <b>&ldquo;aceito a 1 e a 3, recusa a 2&rdquo;</b>.
   As aceitas viram uma versão nova; as recusadas são apagadas junto com o código delas.
