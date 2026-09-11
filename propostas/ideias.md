@@ -28,6 +28,12 @@ casos, e não há erro de console.
   sozinha. Mexe em mais coisa que a 0009, então merece proposta própria.
 - [proposto 0008] Os juros de atraso apareciam na parcela e na mensagem do
   WhatsApp, mas não no "Falta" da ficha nem no resumo geral.
+- abaterSobra marcava as parcelas cobertas pela sobra com a data de hoje,
+  não com a data do pagamento: registrar no dia 11 um pagamento recebido no
+  dia 5 gravava "quitada em 11". Corrigi e testei — mas as parcelas
+  quitadas saem da lista logo em seguida, então a diferença não aparece em
+  print nenhum. Sem antes e depois para o Vitor ver, não vira proposta:
+  fica aqui para pegar carona na próxima mudança que toque essa área.
 - A ordenação do histórico de ativos depende do relógio do aparelho:
   valorAtivoEm percorre o array na ordem em que está e pega o último item
   com data <= o corte. O array é ordenado ao carregar (backup e servidor) e

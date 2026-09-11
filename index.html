@@ -5596,14 +5596,19 @@
   }
 
   // Pagou mais do que devia: a sobra abate as próximas parcelas em aberto.
-  function abaterSobra(parcela, sobra) {
+  // `quando` é a data do pagamento que gerou a sobra, não a de hoje. Um
+  // pagamento lançado com atraso — o cliente pagou dia 5, você registrou
+  // dia 11 — quitava as parcelas cobertas com a data de hoje, e a ficha
+  // passava a dizer "Paga em 11" para dinheiro que entrou no dia 5.
+  function abaterSobra(parcela, sobra, quando) {
     if (sobra <= 0) return 0;
+    var data = ehData(quando) ? quando : hojeTexto();
     var quitadas = 0;
     planoDaParcela(parcela).forEach(function (p) {
       if (sobra <= 0 || p.id === parcela.id || parcelaPaga(p)) return;
       if (sobra >= p.valor) {
         sobra -= p.valor;
-        p.quitadaEm = hojeTexto();
+        p.quitadaEm = data;
         quitadas += 1;
       } else {
         p.valor -= sobra;
@@ -9557,7 +9562,7 @@
             var falta = Math.max(devido - valor, 0);
             var sobra = Math.max(valor - devido, 0);
             if (falta > 0) empurrarFalta(alvo, falta);
-            else if (sobra > 0) abaterSobra(alvo, sobra);
+            else if (sobra > 0) abaterSobra(alvo, sobra, campoData.value);
           }
           acertarParcelas(clienteId, alvo);
         }
