@@ -13,6 +13,9 @@ casos, e não há erro de console.
 
 - [proposto 0007] O relatório de IR afirmava "Posição em 31/12" com o ano
   ainda correndo, mostrando o valor de hoje sob o rótulo de dezembro.
+- [proposto 0012] A conferência com o banco somava lançamentos com data
+  futura e oferecia "Acertar o saldo inicial" em cima dessa diferença
+  falsa, estragando o saldo inicial da conta.
 - [proposto 0011] Na importação, dois lançamentos iguais no mesmo dia eram
   todos marcados como repetidos: bastava existir um igual na conta. Sumia
   transação de verdade.
