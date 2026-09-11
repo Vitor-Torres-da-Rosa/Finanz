@@ -7309,19 +7309,29 @@
       var i = estado.tiposRegistro.indexOf(tipo);
       if (i >= 0) estado.tiposRegistro[i] = nome;
       estado.servicos.forEach(function (s) { if (s.tipo === tipo) s.tipo = nome; });
+      // O orçamento também guarda o tipo, no campo "O que é". Sem isto, um
+      // orçamento salvo continuava com o nome velho na tela e no PDF que
+      // vai para o cliente, apontando para um tipo que não existe mais.
+      (estado.propostas || []).forEach(function (p) { if (p.tipo === tipo) p.tipo = nome; });
       salvar();
       avisar('Tipo renomeado.');
       if (aoTerminar) aoTerminar(nome);
     }, aoTerminar, function (fecharDepois) {
       var usados = estado.servicos.filter(function (s) { return s.tipo === tipo; }).length;
+      var emOrcamento = (estado.propostas || []).filter(function (p) { return p.tipo === tipo; }).length;
+      var partes = [];
+      if (usados) partes.push(usados + ' registro(s)');
+      if (emOrcamento) partes.push(emOrcamento + ' orçamento(s)');
       perguntar({
         titulo: 'Excluir o tipo ' + tipo + '?',
-        texto: usados ? 'Os ' + usados + ' registro(s) com esse tipo passam a valer como "' + TIPO_PADRAO + '".'
-                      : 'Nenhum registro usa esse tipo hoje.',
+        texto: partes.length
+          ? partes.join(' e ') + ' com esse tipo passam a valer como "' + TIPO_PADRAO + '".'
+          : 'Nada usa esse tipo hoje.',
         ok: 'Excluir tipo', tom: 'perigo'
       }, function () {
         estado.tiposRegistro = estado.tiposRegistro.filter(function (t) { return t !== tipo; });
         estado.servicos.forEach(function (s) { if (s.tipo === tipo) s.tipo = TIPO_PADRAO; });
+        (estado.propostas || []).forEach(function (p) { if (p.tipo === tipo) p.tipo = TIPO_PADRAO; });
         salvar();
         avisar('Tipo excluído.');
         fecharDepois(TIPO_PADRAO);

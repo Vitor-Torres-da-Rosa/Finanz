@@ -41,6 +41,24 @@ casos, e não há erro de console.
   Só quebra se o relógio do celular estiver atrasado. Baixíssima
   prioridade, mas fica anotado.
 
+## Achado de verdade, sem print que mostre
+
+- **Renomear ou excluir um tipo de registro não alcança os orçamentos.**
+  `editarTipoRegistro` (index.html) atualiza `estado.tiposRegistro` e
+  `estado.servicos`, mas nunca `estado.propostas` — e o orçamento guarda o
+  tipo no campo "O que é" (`alvo.tipo = rascunho.tipo`, e ele aparece no
+  cabeçalho do orçamento e no PDF que vai para o cliente). Renomeando
+  "Locação" para "Aluguel", o orçamento salvo continua dizendo "Locação";
+  excluindo o tipo, ele fica apontando para um tipo que não existe mais. A
+  contagem do aviso de exclusão ("Os N registro(s)...") também ignora os
+  orçamentos, então subestima o estrago.
+
+  A correção é de três linhas e eu a escrevi e testei (47/47). O que me fez
+  jogar fora foi o print: o passo de renomear passa por três folhas
+  aninhadas e o cenário não conseguiu executá-lo, então o "depois" saiu
+  igual ao "antes" duas vezes. Sem antes e depois, o Vitor não tem como
+  julgar, e a regra é dele. Fica aqui para ser feito com ele olhando.
+
 ## Bug que dá número errado
 
 - [proposto 0002] A dívida de cartões só cresce. `dividaDeCartoes` soma toda saída lançada
