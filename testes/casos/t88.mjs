@@ -96,14 +96,21 @@ const totalDoCliente = async () =>
   (limpo(await page.textContent('#folha')).match(/TotalR\$ [\d.,]+/) || ['?'])[0];
 conferir('6. 4x de R$ 250 fecha em R$ 1.000,00', /1\.000,00/.test(await totalDoCliente()));
 
+// Baixar uma parcela não muda o que o cliente deve: o plano é que se
+// reajusta em volta, virando uma parcela a mais no fim.
 await page.click('#folha .linha:has-text("Parcela 1 de 4")'); await page.waitForTimeout(1200);
-await digitar(page.locator('#folha .campo:has-text("Valor da parcela") input'), '40000');
+await digitar(page.locator('#folha .campo:has-text("Valor da parcela") input'), '10000');
 await page.click('#folha .btn-fantasma:has-text("Salvar alterações")'); await page.waitForTimeout(2000);
-conferir('7. subir a parcela 1 para R$ 400 leva o total para R$ 1.150,00',
-  /1\.150,00/.test(await totalDoCliente()), await totalDoCliente());
-await page.click('#folha .aba-cliente button:has-text("Registros")'); await page.waitForTimeout(900);
-conferir('8. a diferença virou registro de R$ 150,00',
-  /Acréscimo do parcelamento/.test(limpo(await page.textContent('#folha'))));
+conferir('7. baixar a parcela 1 para R$ 100 não mexe no total do cliente',
+  /1\.000,00/.test(await totalDoCliente()), await totalDoCliente());
+const plano = await page.$$eval('#folha .linha', ns => ns
+  .filter(n => /Parcela \d+ de/.test(n.textContent))
+  .map(n => ((n.textContent.replace(/\s+/g, ' ').match(/R\$ [\d.,]+$/)) || [''])[0]));
+console.log('plano:', plano.join(' + '));
+conferir('8. o plano cresceu para 5 parcelas e fecha nos R$ 1.000,00',
+  plano.length === 5 && plano[0] === 'R$ 100,00', plano.join(' + '));
+conferir('9. sumiu o aviso de desencontro',
+  !/Acertar as parcelas/.test(limpo(await page.textContent('#folha'))));
 await page.screenshot({ path: dir+'/u11-parcela.png', fullPage: true });
 
 // ---------- 3) recados dos clientes ----------
@@ -134,11 +141,11 @@ await page.click('#navegacao button:has-text("Início")'); await page.waitForTim
 await page.click('#telaInicio button:has-text("Empreendedor")'); await page.waitForTimeout(1500);
 const recados = await page.$$eval('#telaInicio .cartao.recado', ns => ns.map(n => n.textContent.replace(/\s+/g,' ').trim()));
 console.log('recados:', recados);
-conferir('9. avisa o Pix que cai hoje',
+conferir('10. avisa o Pix que cai hoje',
   recados.some(t => /Hoje tem Pix caindo na conta: R\$ 300,00 de Gustavo/.test(t)));
-conferir('10. sugere oferecer serviço novo na última parcela',
+conferir('11. sugere oferecer serviço novo na última parcela',
   recados.some(t => /Daniela está na última parcela/.test(t) && /oferecer o próximo serviço/.test(t)));
-conferir('11. a linha do cliente mostra "cai hoje"',
+conferir('12. a linha do cliente mostra "cai hoje"',
   (await page.$$eval('#telaInicio .etiqueta', ns => ns.map(n => n.textContent))).indexOf('cai hoje') >= 0);
 await page.screenshot({ path: dir+'/u12-recados.png', fullPage: true });
 
@@ -166,9 +173,9 @@ await page.click('#telaInicio .linha-alvo:has-text("Banco Inter")');
 await page.locator('#folha .dia-cabecalho').first().waitFor({ timeout: 20000 });
 const ms = Date.now() - t0;
 const linhas = await page.locator('#folha .linha').count();
-conferir('12. o extrato de 4.000 movimentos abre em menos de 250ms', ms < 250, ms + 'ms');
-conferir('13. abre em bloco, não com tudo de uma vez', linhas > 0 && linhas < 400, linhas + ' linhas');
-conferir('14. tem o botão de ver o resto',
+conferir('13. o extrato de 4.000 movimentos abre em menos de 250ms', ms < 250, ms + 'ms');
+conferir('14. abre em bloco, não com tudo de uma vez', linhas > 0 && linhas < 400, linhas + ' linhas');
+conferir('15. tem o botão de ver o resto',
   /Ver mais \d+ movimentos/.test(limpo(await page.textContent('#folha'))));
 await page.screenshot({ path: dir+'/u13-extrato.png', fullPage: true });
 
@@ -178,7 +185,7 @@ await page.evaluate(() => new Promise(res => {
   const h = new Date();
   const mes = (v) => { const d = new Date(h.getFullYear(), h.getMonth() - v, 12);
     return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-12'; };
-  const gasto = [70000, 55000, 62000];
+  const gasto = [70000, 130000, 62000];
   for (let m = 3; m >= 1; m--) {
     l.push({ id:'e'+(n++), tipo:'entrada', valor:100000, data:mes(m), contaId:'cc-m', categoria:'Salário', descricao:'Salário' });
     l.push({ id:'s'+(n++), tipo:'saida', valor:gasto[m-1], data:mes(m), contaId:'cc-m', categoria:'Moradia', descricao:'Aluguel' });
@@ -195,10 +202,17 @@ await page.evaluate(() => new Promise(res => {
 await page.click('#dialogoAcoes button:has-text("Restaurar")'); await page.waitForTimeout(3000);
 await page.click('#navegacao button:has-text("Mais")'); await page.waitForTimeout(1800);
 const mais = limpo(await page.textContent('#telaMais'));
-conferir('15. não aparece percentual negativo em lugar nenhum', !/-\d+%/.test(mais));
-conferir('16. diz que guardou zero', /Você guardou zero este mês/.test(mais));
-conferir('17. mostra os últimos meses embaixo', /Últimos meses: \w+ R\$ [\d.,]+ \(\d+%\)/.test(mais),
-  (mais.match(/Últimos meses:[^.]*\./) || ['(sem histórico)'])[0]);
+conferir('16. não aparece percentual negativo em lugar nenhum', !/-\d+%/.test(mais));
+conferir('17. diz que guardou zero', /Você guardou zero este mês/.test(mais));
+conferir('18. mostra os últimos meses embaixo', /Últimos meses: \w+ R\$ [\d.,]+ \(\d+%\)/.test(mais),
+  (mais.match(/Últimos meses:.{0,70}/) || ['(sem histórico)'])[0]);
+const cores = await page.$$eval('#telaMais .achado-nota span', ns => ns
+  .map(n => n.style.color).filter(Boolean));
+conferir('19. cada mês do histórico vem colorido pelo sinal',
+  cores.length >= 3 && cores.some(c => /verde/.test(c)) && cores.some(c => /vermelho/.test(c)),
+  cores.join(' | '));
+conferir('20. o mês negativo aparece com o valor, não como zero',
+  /jul −R\$ 300,00/.test(mais), (mais.match(/Últimos meses:.{0,70}/) || [''])[0]);
 await page.screenshot({ path: dir+'/u14-meta.png', fullPage: true });
 
 await browser.close();

@@ -1577,7 +1577,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.4.0';
+  var VERSAO = '5.4.1';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1587,12 +1587,21 @@
 
   var NOVIDADES = [
     {
+      versao: '5.4.1',
+      data: '2026-09-11',
+      itens: [
+        'Mudar o valor de uma parcela voltou a não mexer no total do cliente. O que muda agora é o plano: o app reencaixa as outras parcelas em volta da que você mexeu, criando parcela nova no fim se faltar — do mesmo jeito que já acontecia quando alguém paga menos do que estava combinado. Baixando uma parcela de R$ 250,00 para R$ 100,00 num plano de 4x, ele vira 100 + 250 + 250 + 250 + 150, fechando nos mesmos R$ 1.000,00.',
+        'Com isso o "Acertar as parcelas (faltam R$ 50,00)" deixa de aparecer depois de uma edição: o plano já sai acertado.',
+        'No histórico dos últimos meses da meta, a cor diz o sinal: verde quando sobrou, branco quando ficou no zero, vermelho quando faltou. O mês negativo mostra o valor que faltou, em vez de aparecer como zero.'
+      ]
+    },
+    {
       versao: '5.4.0',
       data: '2026-09-11',
       itens: [
         'No parcelamento, quantidade, valor da parcela e total agora se completam: escolha 3x e R$ 300,00 e o total vira R$ 900,00; escreva R$ 900,00 em 3x e a parcela vira R$ 300,00; escreva R$ 900,00 e R$ 300,00 e a quantidade vira 3x.',
         'O que sobrar quebrado fica na última parcela e sempre para baixo, então nenhuma parcela passa do valor anunciado. R$ 1.000,00 em 3x dá R$ 333,34, R$ 333,34 e R$ 333,32.',
-        'Dá para abrir uma parcela e mudar só o valor dela: o total do cliente acompanha, para mais ou para menos, e o aviso diz quanto mudou.',
+        'Dá para abrir uma parcela e mudar só o valor dela.',
         'O extrato de uma conta com muitos movimentos abre na hora. Ele vem em blocos, com um botão para ver o resto, e fica pré-calculado enquanto você está na Visão geral — saindo dela, a memória é liberada. Numa conta de 4.000 movimentos: de 452ms para 38ms.',
         'Recados no Empreendedor: "Hoje tem Pix caindo na conta: R$ 300,00 de Gustavo" no dia do vencimento, e um aviso quando faltam 2 parcelas ou menos, para oferecer o próximo serviço e não abrir buraco no mês seguinte. Na lista, o cliente do dia ganha a etiqueta "cai hoje".',
         'A meta de economia parou de dizer que você guardou um percentual negativo. Guardando zero ou menos, ela diz que guardou zero — e mostra o quanto saiu a mais.',
@@ -5622,13 +5631,22 @@
   // Refaz as parcelas em aberto do zero, em vez de remendar a ponta. Assim
   // elas ficam sempre no valor combinado, com a sobra numa última parcela —
   // e não vira um rastro de pedaços a cada vez que o pagamento é editado.
-  function acertarParcelas(clienteId, parcelaBase) {
+  // `fixaId` é a parcela que acabou de ser mexida à mão: ela fica como está
+  // e o resto do plano se ajusta em volta. Sem isso, acertar logo depois de
+  // uma edição desfazia justamente a edição.
+  function acertarParcelas(clienteId, parcelaBase, fixaId) {
     var todas = parcelasDoCliente(clienteId);
     // Sem parcela nenhuma eu não invento um plano: a pessoa apagou de propósito.
     if (!todas.length) return;
 
     var abertas = todas.filter(function (p) { return !parcelaPaga(p); });
     var restante = Math.max(resumoCliente(clienteId).restante, 0);
+
+    var fixa = fixaId ? achar(abertas, fixaId) : null;
+    if (fixa) {
+      restante = Math.max(restante - fixa.valor, 0);
+      abertas = abertas.filter(function (p) { return p.id !== fixa.id; });
+    }
 
     function apagar(lista) {
       if (!lista.length) return;
@@ -5644,8 +5662,13 @@
     }
 
     // O valor combinado por parcela é o maior do plano: as sobras são menores.
+    // A parcela recém-mexida fica de fora da régua — senão baixar uma parcela
+    // encolheria o plano inteiro junto com ela.
     var padrao = 0;
-    todas.forEach(function (p) { if (p.valor > padrao) padrao = p.valor; });
+    todas.forEach(function (p) {
+      if (fixa && p.id === fixa.id) return;
+      if (p.valor > padrao) padrao = p.valor;
+    });
     if (padrao <= 0) padrao = restante;
 
     var quantas = Math.max(1, Math.ceil(restante / padrao));
@@ -8820,42 +8843,6 @@
     return NOME_ACRESCIMO.test(String(sv.nome || ''));
   }
 
-  // Mexeu numa parcela, o total do cliente tem que acompanhar — para mais ou
-  // para menos. Quem carrega essa diferença é o registro de acréscimo que o
-  // parcelamento criou: ele sobe, desce ou some, e os registros do próprio
-  // cliente não são tocados. Se as parcelas cobrem menos do que ele deve,
-  // não há acréscimo nenhum: é só um parcelamento parcial.
-  function ajustarAcrescimoDoParcelamento(clienteId) {
-    var parcelas = parcelasDoCliente(clienteId);
-    var doApp = null;
-    var proprios = 0;
-    servicosDoCliente(clienteId).forEach(function (sv) {
-      if (ehAcrescimoDeParcelamento(sv)) { if (!doApp) doApp = sv; return; }
-      proprios += sv.valor;
-    });
-
-    var combinado = parcelas.reduce(function (soma, p) { return soma + p.valor; }, 0);
-    var falta = parcelas.length ? combinado - proprios : 0;
-
-    if (falta > 0) {
-      if (doApp) { doApp.valor = falta; return; }
-      var quantas = parcelas.length;
-      estado.servicos.push({
-        id: novoId(), clienteId: clienteId,
-        nome: quantas > 1 ? 'Acréscimo do parcelamento em ' + quantas + 'x'
-                          : 'Acréscimo sobre o valor combinado',
-        tipo: TIPO_PADRAO, valor: falta,
-        data: parcelas[0].vencimento, obs: '', criadoEm: Date.now()
-      });
-      return;
-    }
-
-    if (doApp) {
-      marcarExcluido('servicos', doApp.id);
-      estado.servicos = estado.servicos.filter(function (sv) { return sv.id !== doApp.id; });
-    }
-  }
-
   function abrirFolhaParcelamento(clienteId, servicoId) {
     var cliente = achar(estado.clientes, clienteId);
     if (!cliente) return;
@@ -9240,18 +9227,24 @@
         var valor = digitosParaCentavos(campoValorEl.value);
         if (valor <= 0) { mostrarErro(forma, 'Informe o valor da parcela.'); return; }
         if (!ehData(campoData.value)) { mostrarErro(forma, 'Escolha uma data válida.'); return; }
-        var antes = parcela.valor;
         parcela.valor = valor;
         parcela.vencimento = campoData.value;
         parcela.servicoId = campoServico.value;
         parcela.minimo = 0;
         parcela.jurosAtraso = Math.min(Math.max(comoNumero(campoJuros.value, 0), 0), 100);
-        ajustarAcrescimoDoParcelamento(clienteId);
+        // Mudar o planejado desencaixa o plano do que o cliente deve. O app
+        // reencaixa na hora, sem tocar na parcela que acabou de ser mexida:
+        // o que faltar vira parcela nova no fim, do mesmo jeito que acontece
+        // quando alguém paga menos do que estava combinado.
+        var antesDe = parcelasDoCliente(clienteId).length;
+        acertarParcelas(clienteId, null, parcela.id);
+        var depoisDe = parcelasDoCliente(clienteId).length;
         salvar();
         voltarNavegacao();
-        avisar(valor === antes ? 'Parcela atualizada.'
-          : 'Parcela atualizada. O total do cliente acompanhou (' +
-            (valor > antes ? '+' : '−') + emReais(Math.abs(valor - antes)) + ').');
+        avisar(depoisDe === antesDe ? 'Parcela atualizada.'
+          : depoisDe > antesDe
+            ? 'Parcela atualizada. O plano cresceu para ' + depoisDe + ' parcelas.'
+            : 'Parcela atualizada. O plano fechou em ' + depoisDe + ' parcelas.');
       }));
       acoes.appendChild(botao('btn btn-perigo', 'Excluir esta parcela', function () {
         perguntar({
@@ -9261,7 +9254,6 @@
         }, function () {
           marcarExcluido('parcelas', parcela.id);
           estado.parcelas = estado.parcelas.filter(function (p) { return p.id !== parcela.id; });
-          ajustarAcrescimoDoParcelamento(clienteId);
           salvar();
           voltarNavegacao();
           avisar('Parcela excluída.');
@@ -10999,11 +10991,18 @@
 
   function notaDoHistorico(ano, mes) {
     var h = historicoDeSobra(ano, mes, 3);
-    if (!h.length) return '';
-    return 'Últimos meses: ' + h.map(function (x) {
-      return MESES[x.mes].slice(0, 3).toLowerCase() + ' ' +
-             (x.sobra > 0 ? emReais(x.sobra) + ' (' + x.taxa + '%)' : 'zero');
-    }).join('  ·  ') + '.';
+    if (!h.length) return null;
+    return {
+      rotulo: 'Últimos meses:',
+      itens: h.map(function (x) {
+        return {
+          texto: MESES[x.mes].slice(0, 3).toLowerCase() + ' ' +
+                 (x.sobra > 0 ? emReais(x.sobra) + ' (' + x.taxa + '%)'
+                              : x.sobra === 0 ? emReais(0) : '−' + emReais(-x.sobra)),
+          cor: x.sobra > 0 ? 'var(--verde)' : x.sobra === 0 ? 'var(--texto)' : 'var(--vermelho)'
+        };
+      })
+    };
   }
 
   function partesDaSaude(ano, mes) {
@@ -11527,7 +11526,17 @@
       c.appendChild(leg);
     }
 
-    if (a.nota) c.appendChild(no('div', 'achado-nota', a.nota));
+    if (a.nota) {
+      var nt = no('div', 'achado-nota');
+      nt.appendChild(no('span', null, a.nota.rotulo + ' '));
+      a.nota.itens.forEach(function (x, i) {
+        if (i) nt.appendChild(no('span', null, '  ·  '));
+        var e = no('span', null, x.texto);
+        e.style.color = x.cor;
+        nt.appendChild(e);
+      });
+      c.appendChild(nt);
+    }
 
     if (a.detalhes && a.detalhes.length) {
       var d = no('div', 'achado-detalhes');
