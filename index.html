@@ -9311,8 +9311,19 @@
         servicos.map(function (s) {
           return { valor: s.id, rotulo: s.nome, detalhe: (s.tipo || 'Serviço') + ' · ' + emReais(s.valor) };
         }));
+
+      // Com um registro só, não há o que escolher: apontar sozinho poupa um
+      // toque e amarra o pagamento ao que foi vendido, que é o que faz a
+      // entrada cair na categoria certa. Com dois ou mais o app não chuta —
+      // errar o registro bagunça a conta do cliente. Os acréscimos que o
+      // próprio app criou não contam como escolha: eles existem por causa
+      // de outro registro, não são o que o cliente comprou.
+      var doCliente = servicos.filter(function (s) { return !ehAcrescimoDeParcelamento(s); });
+      var sozinho = doCliente.length === 1 ? doCliente[0].id : '';
+
       var campoServico = entradaSelecao(opcoesServico,
-        existente ? existente.servicoId : (parcela ? parcela.servicoId : ''), 'Referente a');
+        existente ? existente.servicoId : (parcela ? (parcela.servicoId || sozinho) : sozinho),
+        'Referente a');
       forma.appendChild(campo('Referente a', campoServico));
 
       // ---- juros, multa e taxa lançados na hora ----
