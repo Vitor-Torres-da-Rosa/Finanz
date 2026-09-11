@@ -5,7 +5,7 @@
 // Orçamento de R$ 800,00, até 3x, R$ 100,00 de acréscimo por parcela:
 //   à vista  R$   800,00
 //   2x       R$   900,00        2 de R$ 450,00
-//   3x       R$ 1.000,00        3 de R$ 333,33 (última R$ 333,34)
+//   3x       R$ 1.000,00        3 de R$ 333,34 (a última, menor, R$ 333,32)
 import { chromium, dir, ENDERECO } from '../comum.mjs';
 import fs from 'node:fs';
 const browser = await chromium.launch();
@@ -68,8 +68,8 @@ console.log('como pagar:', comoPagar.slice(comoPagar.indexOf('Parcelado direto')
 conferir('3. à vista = R$ 800,00, o total do orçamento', /À vistasem acréscimoR\$ 800,00/.test(comoPagar));
 conferir('4. 2x = R$ 900,00, um degrau acima do à vista (2 de R$ 450,00)',
   /2x2x de R\$ 450,00R\$ 900,00/.test(comoPagar));
-conferir('5. 3x = R$ 1.000,00 (3 de R$ 333,33)',
-  /3x3x de R\$ 333,33[\s\S]*?R\$ 1\.000,00/.test(comoPagar));
+conferir('5. 3x = R$ 1.000,00 (3 de R$ 333,34, a última menor)',
+  /3x3x de R\$ 333,34 \(última R\$ 333,32\)R\$ 1\.000,00/.test(comoPagar));
 conferir('6. os degraus são de R$ 100 em R$ 100 a partir do 2x',
   /À vistasem acréscimoR\$ 800,00.*?R\$ 900,00.*?R\$ 1\.000,00/.test(comoPagar));
 await page.evaluate(() => {
@@ -99,7 +99,7 @@ const direto = limpo(textoPdf.slice(textoPdf.indexOf('Parcelado direto')));
 console.log('no PDF:', direto.slice(0, 220));
 conferir('7. no PDF, à vista = R$ 800,00', /à vista \| R\$ 800,00/.test(direto));
 conferir('8. no PDF, 2x de R$ 450,00 dá R$ 900,00', /2x \| R\$ 450,00 \| R\$ 900,00/.test(direto));
-conferir('9. no PDF, 3x de R$ 333,33 dá R$ 1.000,00', /3x \| R\$ 333,33 \| R\$ 1\.000,00/.test(direto));
+conferir('9. no PDF, 3x de R$ 333,34 dá R$ 1.000,00', /3x \| R\$ 333,34 \| R\$ 1\.000,00/.test(direto));
 conferir('10. no PDF não sobrou o R$ 1.100,00 do cálculo antigo', !/R\$ 1\.100,00/.test(direto));
 
 await browser.close();

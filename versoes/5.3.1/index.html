@@ -509,6 +509,77 @@
   .conf-linha:last-child { border-bottom: 0; }
   .conf-cab { color: var(--fraco); font-size: 11px; text-transform: uppercase;
               letter-spacing: .06em; }
+  /* ---------- Análise financeira ----------
+     Mesma linguagem do resto do app: fundo escuro, borda discreta, ouro
+     para o que importa. O que muda é a hierarquia, não a estética. */
+  .analise-titulo { font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+                    color: var(--fraco); margin: 2px 2px 10px; }
+
+  .cartao.saude { padding: 18px 16px; }
+  .saude-linha { display: flex; align-items: center; gap: 16px; }
+  .saude-anel { position: relative; width: 84px; height: 84px; flex: none; }
+  .saude-num { position: absolute; inset: 0; display: flex; align-items: baseline;
+               justify-content: center; gap: 1px; }
+  .saude-valor { font-size: 26px; font-weight: 700; color: var(--texto); line-height: 1; }
+  .saude-de { font-size: 11px; color: var(--fraco); }
+  .saude-texto { min-width: 0; }
+  .saude-faixa { font-size: 19px; font-weight: 600; margin: 2px 0 4px; }
+  .saude-esperando { font-size: 18px; font-weight: 600; color: var(--suave); margin: 8px 0 6px; }
+
+  .parte-nota { padding: 10px 0; border-bottom: 1px solid var(--borda); }
+  .parte-nota:last-child { border-bottom: 0; }
+  .parte-topo { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
+  .parte-barra, .meta-barra, .mini-barra { height: 5px; border-radius: 3px;
+                 background: rgba(255,255,255,.07); overflow: hidden; margin-top: 8px; }
+  .parte-cheio, .meta-cheio { height: 100%; background: var(--ouro); border-radius: 3px;
+                 transition: width .8s cubic-bezier(.2,.8,.2,1); }
+  .mini-barra { margin-top: 6px; }
+  .mini-cheio { height: 100%; border-radius: 3px; }
+
+  /* Um achado: ícone, título curto, número, uma explicação e um caminho. */
+  .cartao.achado { padding: 16px; animation: subir .45s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes subir { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .cartao.achado { animation: none; }
+    .parte-cheio, .meta-cheio, .anel-nota circle { transition: none; }
+  }
+  .achado-topo { display: flex; align-items: center; gap: 9px; }
+  .achado-icone { font-size: 15px; width: 26px; height: 26px; border-radius: 8px;
+                  display: flex; align-items: center; justify-content: center;
+                  background: rgba(255,255,255,.05); flex: none; }
+  .achado-titulo { font-size: 14.5px; font-weight: 600; color: var(--texto); }
+  .achado-valor { font-size: 25px; font-weight: 700; margin: 10px 0 2px;
+                  letter-spacing: -.01em; }
+  .achado-texto { font-size: 13.5px; color: var(--suave); line-height: 1.5; margin: 4px 0 0; }
+  .achado-nota { font-size: 11px; color: var(--fraco); line-height: 1.5; margin-top: 8px; }
+  .achado-detalhes { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--borda); }
+  .achado-linha { display: flex; justify-content: space-between; gap: 12px;
+                  font-size: 13px; color: var(--suave); padding: 5px 0; }
+  .achado-linha .num { color: var(--texto); }
+  .meta-legenda { display: flex; justify-content: space-between; font-size: 11.5px;
+                  color: var(--fraco); margin-top: 6px; }
+
+  .btn-acao { margin-top: 14px; color: var(--ouro); font-size: 13.5px; font-weight: 600;
+              padding: 10px 0; text-align: left; width: 100%; min-height: 44px; }
+  .btn-acao:active { opacity: .6; }
+
+  /* O tom é uma faixa fina na borda, não um cartão colorido. */
+  .cartao.tom-ruim { border-left: 2px solid rgba(255,107,107,.55); }
+  .cartao.tom-atencao { border-left: 2px solid rgba(233,180,76,.55); }
+  .cartao.tom-bom { border-left: 2px solid rgba(61,220,132,.45); }
+  .cartao.tom-info { border-left: 2px solid var(--borda); }
+
+  .cartao.proxima { border: 1px solid rgba(233,180,76,.4); }
+  .cartao.proxima .btn { margin-top: 14px; }
+
+  .linha-verTudo { border: 1px solid var(--borda); border-radius: var(--raio);
+                   margin-bottom: 12px; }
+
+  .recorrente { padding: 4px 0 10px; border-bottom: 1px solid var(--borda); }
+  .recorrente:last-child { border-bottom: 0; }
+  .recorrente-acoes { display: flex; gap: 8px; padding: 0 2px; }
+  .recorrente-acoes .btn-mini { flex: 1; }
+
   /* As bandeiras lado a lado, cada uma com a sua tabela de taxas — a mesma
      leitura do aplicativo da maquininha. */
   .grelha-bandeiras { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
@@ -1421,6 +1492,11 @@
   .etiqueta.quitado { background: rgba(52,211,153,.14); color: var(--verde); }
   .etiqueta.aberto { background: rgba(233,180,76,.14); color: var(--ouro); }
   .etiqueta.atrasado { background: rgba(248,113,113,.14); color: var(--vermelho); }
+  .etiqueta.hoje { background: rgba(61,220,132,.16); color: var(--verde); }
+  .cartao.recado { padding: 14px 16px; }
+  .recado-topo { display: flex; align-items: flex-start; gap: 9px; }
+  .recado-icone { font-size: 16px; line-height: 1.35; }
+  .recado-texto { font-size: 13.5px; color: var(--suave); line-height: 1.45; }
 
   /* ---------- Novidades ---------- */
 
@@ -1501,7 +1577,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '4.7.1';
+  var VERSAO = '5.3.1';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1510,6 +1586,69 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '5.3.1',
+      data: '2026-09-11',
+      itens: [
+        'Conserto do que faltou na 5.3.0: aumentar o "Valor a combinar" acima do que o cliente deve também é acréscimo, e agora vira registro na ficha. Antes, um registro de R$ 1.000,00 parcelado em 4x de R$ 337,50 deixava a ficha com Total de R$ 1.000,00 e parcelas somando R$ 1.350,00 — e o app ainda oferecia "Acertar as parcelas".',
+        'A régua do acréscimo passou a ser o que está registrado, não o que foi digitado: o valor do registro escolhido em "Referente a" ou, sem registro escolhido, o que o cliente deve e ainda não foi parcelado.',
+        'O resumo avisa antes de confirmar: "Acréscimo de R$ 350,00 sobre os R$ 1.000,00 que o cliente já deve. Vai entrar como um registro novo na ficha."',
+        'Parcelar só uma parte do que o cliente deve continua não inventando acréscimo nem desconto.'
+      ]
+    },
+    {
+      versao: '5.3.0',
+      data: '2026-09-11',
+      itens: [
+        'O acréscimo do parcelamento de cliente passa a seguir a mesma regra do orçamento: ele conta uma vez para cada parcela depois da primeira. R$ 1.000,00 com R$ 100,00 por parcela agora dá R$ 1.000,00 à vista, R$ 1.100,00 em 2x, R$ 1.200,00 em 3x e R$ 1.300,00 em 4x. Antes o à vista já saía R$ 1.100,00 e o 4x chegava a R$ 1.400,00.',
+        'Apagar o parcelamento agora leva junto o registro "Acréscimo do parcelamento". Ele só existia por causa das parcelas; ficando para trás, continuava cobrando sozinho. A confirmação diz o valor que vai sair junto.',
+        'Escrevendo direto no "Total a cobrar", sem usar o campo de acréscimo por parcela, o app continua criando o registro do acréscimo sozinho — e à vista ele se chama "Acréscimo sobre o valor combinado", em vez de falar em parcelamento.'
+      ]
+    },
+    {
+      versao: '5.2.2',
+      data: '2026-09-10',
+      itens: [
+        'Correção no parcelado direto: o acréscimo estava sendo cobrado em todas as parcelas, inclusive no à vista. Um orçamento de R$ 800,00 com R$ 100,00 por parcela mostrava R$ 900,00 à vista, R$ 1.000,00 em 2x e R$ 1.100,00 em 3x.',
+        'O acréscimo agora é o preço de esperar: conta uma vez para cada parcela depois da primeira. O mesmo orçamento passa a mostrar R$ 800,00 à vista, R$ 900,00 em 2x, R$ 1.000,00 em 3x, R$ 1.100,00 em 4x — de R$ 100 em R$ 100, começando no 2x.',
+        'Cada opção continua dividida em parcelas iguais, que é o que a coluna "cada parcela" do PDF promete: 2x de R$ 450,00, 3x de R$ 333,33, e assim por diante.',
+        'Vale igual para o acréscimo em porcentagem: antes o percentual dava o mesmo total em 1x e em 12x; agora ele também sobe um degrau por parcela.',
+        'Na tela do orçamento o à vista aparece junto do "até X vezes", com a nota "sem acréscimo — é o total do orçamento", para você conferir antes de mandar o PDF.'
+      ]
+    },
+    {
+      versao: '5.2.0',
+      data: '2026-09-10',
+      itens: [
+        'A fatura do cartão parou de ser contada duas vezes no app inteiro. Antes, quem tinha as compras do cartão lançadas via o gasto uma vez nas compras e outra no pagamento da fatura — e o mês parecia bem pior do que foi.',
+        '"Despesas" agora é o que você gastou de verdade: as compras do cartão contam, o pagamento da fatura não, porque ele só quita um gasto que já foi contado. Vale no Início, na rosquinha, no orçamento (geral e por categoria), em Transações e nos relatórios.',
+        'O cartão "Fluxo de caixa" ficou sendo o que o nome diz: o dinheiro que entrou e saiu das contas. Ali o pagamento da fatura conta, e a compra no cartão entra quando a fatura é paga. São duas perguntas diferentes e a tela explica a diferença.',
+        'O lançamento da fatura continua na lista de Transações, com o valor certo, agora marcado com "não conta como despesa" — assim dá para conferir em vez de achar que sumiu.',
+        'Se você importou o extrato do banco mas não as compras do cartão, nada muda: sem as compras lançadas, o pagamento da fatura é o único registro do gasto e continua contando normalmente.',
+        'O relatório de fluxo de caixa mostra os dois números lado a lado, cada um com o seu nome e a explicação de por que são diferentes.'
+      ]
+    },
+    {
+      versao: '5.1.0',
+      data: '2026-09-10',
+      itens: [
+        'A meta de economia agora é sua: escolha em Mais → Preferências quanto da renda quer guardar por mês. É a régua da nota de saúde e do "quanto falta".',
+        'A sincronia deixou de falhar em silêncio. Se os dados não estiverem indo para a nuvem, isso aparece em Mais, em vermelho, com o motivo.',
+        'Toda atualização passa a guardar a versão anterior. Se algo quebrar, dá para voltar na hora em finanz/versoes/, pelo celular.'
+      ]
+    },
+    {
+      versao: '5.0.0',
+      data: '2026-09-10',
+      itens: [
+        'A análise em Mais foi refeita: em vez de dez cartões, ela responde três perguntas — como você está, o que pede atenção e o que dá para fazer.',
+        'Nota de saúde financeira de 0 a 100, com "Como calculamos" mostrando cada parte e o que ficou de fora por falta de dados.',
+        'No máximo três achados na tela, escolhidos por prioridade. O resto fica em "Ver análise completa".',
+        'Pagar a fatura do cartão deixou de contar como gasto novo: o gasto são as compras dentro dela, e agora dá para ver a fatura por categoria.',
+        'Despesas que se repetem: o total comprometido não é mais apresentado como economia possível. O que pode valer revisão vem separado, e você responde se ainda usa.',
+        'Comparações são com o seu próprio histórico, nunca com médias de fora. Sem três meses de dados, o app diz que ainda está conhecendo seu padrão em vez de chutar.'
+      ]
+    },
     {
       versao: '4.7.1',
       data: '2026-09-10',
@@ -2073,6 +2212,8 @@
         reservaLigada: true,
         reservaConta: '',
         reservaManual: 0,
+        // Quanto da renda você quer guardar por mês, em %.
+        metaEconomia: 20,
         // Quem assina o orçamento. Fica guardado para não digitar de novo.
         negocio: '',
         contato: '',
@@ -2097,6 +2238,8 @@
       importacoes: [],
       // Orçamentos: a simulação de um serviço antes de fechar com o cliente.
       propostas: [],
+      // O que você já disse sobre cada despesa que se repete.
+      revisados: {},
       clientes: [],
       servicos: [],
       pagamentos: [],
@@ -2324,6 +2467,7 @@
           bruto.perfil.taxas.bandeiras.length) {
         limpo.perfil.taxas = limparPagamento(bruto.perfil.taxas);
       }
+      limpo.perfil.metaEconomia = Math.min(Math.max(inteiro(bruto.perfil.metaEconomia) || 20, 1), 90);
       limpo.perfil.negocio = texto(bruto.perfil.negocio).slice(0, 60);
       limpo.perfil.contato = texto(bruto.perfil.contato).slice(0, 40);
       var ret = Number(bruto.perfil.retiradaAnual);
@@ -2384,6 +2528,15 @@
           de: soData(i.de), ate: soData(i.ate)
         };
       }).slice(-60);
+    }
+
+    if (bruto.revisados && typeof bruto.revisados === 'object') {
+      Object.keys(bruto.revisados).slice(0, 400).forEach(function (k) {
+        var v = bruto.revisados[k];
+        if (typeof k === 'string' && (v === 'manter' || v === 'revisar')) {
+          limpo.revisados[k.slice(0, 80)] = v;
+        }
+      });
     }
 
     if (Array.isArray(bruto.propostas)) {
@@ -2752,6 +2905,8 @@
   var filaSalvar = Promise.resolve();
 
   function salvar() {
+    limparCacheDeFatura();
+    soltarExtratos();
     if (!sessao) return;
 
     // Com servidor configurado, a identidade é a da nuvem e o cofre local
@@ -3238,7 +3393,10 @@
       propostas: estado.propostas || [],
       negocio: p.negocio || '',
       contato: p.contato || '',
-      taxas: p.taxas && p.taxas.bandeiras ? p.taxas : null,
+      // A coluna não aceita nulo; quem decide se vale é o lado que lê.
+      taxas: p.taxas && p.taxas.bandeiras ? p.taxas : {},
+      meta_economia: p.metaEconomia || 20,
+      revisados: estado.revisados || {},
       orcamento_geral: estado.orcamentos.geral,
       objetivos: p.objetivos || []
     };
@@ -3359,6 +3517,8 @@
       if (perfil.taxas && Array.isArray(perfil.taxas.bandeiras) && perfil.taxas.bandeiras.length) {
         novo.perfil.taxas = perfil.taxas;
       }
+      if (perfil.revisados && typeof perfil.revisados === 'object') novo.revisados = perfil.revisados;
+      novo.perfil.metaEconomia = perfil.meta_economia || 20;
       novo.perfil.negocio = perfil.negocio || '';
       novo.perfil.contato = perfil.contato || '';
       novo.perfil.objetivos = perfil.objetivos || [];
@@ -3464,6 +3624,20 @@
     return folhaAberta || dialogoAberto || !!escolhaAtual;
   }
 
+  // A sincronia automática não pode gritar a cada tropeço de rede, mas
+  // também não pode falhar em silêncio para sempre: quem confia que os
+  // dados estão na nuvem precisa saber quando eles não estão.
+  var falhaDaSincronia = null;
+
+  function marcarFalhaDeSincronia(e) {
+    var seguidas = (falhaDaSincronia ? falhaDaSincronia.seguidas : 0) + 1;
+    falhaDaSincronia = {
+      mensagem: (e && e.message) || 'motivo desconhecido',
+      quando: Date.now(), seguidas: seguidas
+    };
+    return falhaDaSincronia;
+  }
+
   function sincronizar(silenciosa) {
     if (!NUVEM.ligada || !sessaoNuvem || !sessaoNuvem.usuario.id) return Promise.resolve(false);
     if (sincronizando) return Promise.resolve(false);
@@ -3474,19 +3648,26 @@
     }).then(function (doServidor) {
       if (!doServidor) {
         sincronizando = false;
+        falhaDaSincronia = null;
         agendarSincronia();
         return false;
       }
       estado = doServidor;
       return salvar().then(function () {
         sincronizando = false;
+        falhaDaSincronia = null;
         if (!silenciosa) avisar('Sincronizado com a nuvem.');
         desenhar();
         return true;
       });
     }).catch(function (e) {
       sincronizando = false;
-      if (!silenciosa) avisar('Não sincronizou: ' + e.message);
+      var f = marcarFalhaDeSincronia(e);
+      if (!silenciosa) { avisar('Não sincronizou: ' + f.mensagem); return false; }
+      // Três tentativas seguidas já não é tropeço de rede: é problema.
+      if (f.seguidas === 3) {
+        avisar('Seus dados não estão indo para a nuvem. Veja em Mais.');
+      }
       return false;
     });
   }
@@ -3697,28 +3878,120 @@
     return estado.lancamentos.filter(function (l) { return l.data.indexOf(pre) === 0; });
   }
 
-  function totaisDoMes(ano, mes) {
-    var entradas = 0, saidas = 0;
-    lancamentosDoMes(ano, mes).forEach(function (l) {
-      if (l.tipo === 'entrada') entradas += l.valor;
-      else if (l.tipo === 'saida') saidas += l.valor;
-    });
-    return { entradas: entradas, saidas: saidas, saldo: entradas - saidas };
+  // ---- fatura do cartão: uma regra só, valendo para o app inteiro ----------
+  //
+  // Pagar a fatura tira dinheiro da conta, mas não é um gasto novo: o gasto
+  // foram as compras que entraram naquela fatura. Somar os dois é somar duas
+  // vezes. Daí existirem duas leituras legítimas e diferentes do mesmo mês:
+  //
+  //   consumo — quanto foi gasto de fato: as compras contam, a fatura não
+  //   caixa   — quanto saiu das contas: a fatura conta, as compras ainda não
+  //
+  // "Despesas", orçamento, rosca e relatórios por categoria são consumo.
+  // O cartão "Fluxo de caixa" é caixa, e diz isso na tela.
+  var TEXTO_FATURA = /(pag(amento|to)?\.?\s*(de\s*)?\.?\s*fat(ura)?|fat(ura)?\s*(do\s*)?cart|pgto\s*fat)/;
+
+  function ehPagamentoDeFatura(l) {
+    if (l.tipo !== 'saida') return false;
+    if (ehCartao(achar(estado.contas, l.contaId))) return false;
+    return TEXTO_FATURA.test(semAcentoSimples(l.descricao || ''));
   }
 
-  function gastosPorCategoria(ano, mes, tipo) {
+  // Só dá para descontar a fatura quando as compras do cartão estão
+  // lançadas. Sem elas o pagamento é o único retrato do gasto, e fica.
+  function temComprasDeCartao(lista) {
+    var ids = {};
+    cartoes().forEach(function (c) { ids[c.id] = c; });
+    for (var i = 0; i < lista.length; i++) {
+      if (lista[i].tipo === 'saida' && ids[lista[i].contaId]) return true;
+    }
+    return false;
+  }
+
+  // A resposta por mês é a mesma para dezenas de linhas na tela, então fica
+  // guardada até o próximo desenho ou a próxima gravação.
+  var cacheDeCompras = {};
+
+  function limparCacheDeFatura() { cacheDeCompras = {}; }
+
+  function temComprasNoMes(ano, mes) {
+    var chave = ano + '-' + mes;
+    if (!(chave in cacheDeCompras)) {
+      cacheDeCompras[chave] = temComprasDeCartao(lancamentosDoMes(ano, mes));
+    }
+    return cacheDeCompras[chave];
+  }
+
+  // A visão de consumo de uma lista: a mesma lista sem as faturas pagas,
+  // mais o que saiu dela e por quê.
+  function visaoDeConsumo(lista) {
+    if (!temComprasDeCartao(lista)) {
+      return { lista: lista, faturasPagas: [], valorDasFaturas: 0, modo: 'fatura' };
+    }
+    var faturas = [], valor = 0;
+    var fora = lista.filter(function (l) {
+      if (!ehPagamentoDeFatura(l)) return true;
+      faturas.push(l);
+      valor += l.valor;
+      return false;
+    });
+    return { lista: fora, faturasPagas: faturas, valorDasFaturas: valor, modo: 'compras' };
+  }
+
+  // Este lançamento entra no total de despesas do mês dele? Serve para
+  // marcar a linha em Transações sem recalcular o mês inteiro por linha.
+  function contaComoDespesa(l) {
+    if (l.tipo !== 'saida') return false;
+    if (!ehPagamentoDeFatura(l)) return true;
+    return !temComprasNoMes(+l.data.slice(0, 4), +l.data.slice(5, 7) - 1);
+  }
+
+  // Saída de dinheiro de verdade: o que deixou uma conta. A compra no cartão
+  // ainda não saiu de lugar nenhum — ela sai quando a fatura é paga.
+  function ehSaidaDeCaixa(l) {
+    return l.tipo === 'saida' && !ehCartao(achar(estado.contas, l.contaId));
+  }
+
+  function totaisDaLista(lista) {
+    var v = visaoDeConsumo(lista);
+    var entradas = 0, saidas = 0, saidasCaixa = 0;
+    lista.forEach(function (l) {
+      if (l.tipo === 'entrada') entradas += l.valor;
+      else if (ehSaidaDeCaixa(l)) saidasCaixa += l.valor;
+    });
+    v.lista.forEach(function (l) { if (l.tipo === 'saida') saidas += l.valor; });
+    return {
+      entradas: entradas, saidas: saidas, saldo: entradas - saidas,
+      saidasCaixa: saidasCaixa, saldoCaixa: entradas - saidasCaixa,
+      faturasPagas: v.faturasPagas, valorDasFaturas: v.valorDasFaturas, modo: v.modo
+    };
+  }
+
+  function porCategoriaDaLista(lista, tipo) {
     var lado = tipo === 'entrada' ? 'entrada' : 'saida';
+    var base = lado === 'saida'
+      ? visaoDeConsumo(lista)
+      : { lista: lista, faturasPagas: [], valorDasFaturas: 0, modo: 'fatura' };
     var mapa = {};
     var total = 0;
-    lancamentosDoMes(ano, mes).forEach(function (l) {
+    base.lista.forEach(function (l) {
       if (l.tipo !== lado) return;
       mapa[l.categoria] = (mapa[l.categoria] || 0) + l.valor;
       total += l.valor;
     });
-    var lista = Object.keys(mapa).map(function (nome) {
+    var ordenada = Object.keys(mapa).map(function (nome) {
       return { nome: nome, valor: mapa[nome] };
     }).sort(function (a, b) { return b.valor - a.valor; });
-    return { lista: lista, total: total };
+    return {
+      lista: ordenada, total: total,
+      faturasPagas: base.faturasPagas, valorDasFaturas: base.valorDasFaturas, modo: base.modo
+    };
+  }
+
+  function totaisDoMes(ano, mes) { return totaisDaLista(lancamentosDoMes(ano, mes)); }
+
+  function gastosPorCategoria(ano, mes, tipo) {
+    return porCategoriaDaLista(lancamentosDoMes(ano, mes), tipo);
   }
 
   function alocacaoPorClasse() {
@@ -5485,6 +5758,67 @@
     return { classe: 'aberto', texto: 'em aberto' };
   }
 
+  // ---- os recados dos clientes ----------------------------------------
+  //
+  // Duas coisas que a ficha sabe e o dono do negócio ia ter que descobrir
+  // sozinho: que hoje é dia de dinheiro entrando, e que um cliente está
+  // acabando de pagar — que é a hora de oferecer o próximo serviço.
+
+  function parcelasDeHoje(clienteId) {
+    var hoje = hojeTexto();
+    return parcelasDoCliente(clienteId).filter(function (p) {
+      return p.vencimento === hoje && !parcelaPaga(p);
+    });
+  }
+
+  function parcelasAbertas(clienteId) {
+    return parcelasDoCliente(clienteId).filter(function (p) { return !parcelaPaga(p); });
+  }
+
+  // Está acabando: duas parcelas ou menos para quitar, e ainda deve algo.
+  function estaAcabando(clienteId) {
+    var abertas = parcelasAbertas(clienteId);
+    if (!abertas.length || abertas.length > 2) return false;
+    return resumoCliente(clienteId).restante > 0;
+  }
+
+  function recadoDeHoje(cliente) {
+    var hoje = parcelasDeHoje(cliente.id);
+    if (!hoje.length) return null;
+    var soma = hoje.reduce(function (s, p) { return s + faltaNaParcela(p); }, 0);
+    var primeiro = (cliente.nome || '').trim().split(/\s+/)[0] || cliente.nome;
+    return {
+      tom: 'bom', icone: '💸',
+      texto: hoje.length > 1
+        ? 'Hoje tem Pix caindo na conta: ' + hoje.length + ' parcelas de ' + primeiro +
+          ', somando ' + emReais(soma) + '.'
+        : 'Hoje tem Pix caindo na conta: ' + emReais(soma) + ' de ' + primeiro + '.'
+    };
+  }
+
+  function recadoDeFim(cliente) {
+    if (!estaAcabando(cliente.id)) return null;
+    var abertas = parcelasAbertas(cliente.id);
+    var primeiro = (cliente.nome || '').trim().split(/\s+/)[0] || cliente.nome;
+    return {
+      tom: 'atencao', icone: '🤝',
+      texto: abertas.length === 1
+        ? primeiro + ' está na última parcela. Boa hora de oferecer o próximo serviço para não abrir buraco no mês que vem.'
+        : 'Faltam 2 parcelas para ' + primeiro + ' quitar. Boa hora de oferecer o próximo serviço e manter a entrada mensal.'
+    };
+  }
+
+  function recadosDosClientes() {
+    var fora = [];
+    estado.clientes.forEach(function (c) {
+      var hoje = recadoDeHoje(c);
+      if (hoje) fora.push({ cliente: c, recado: hoje, ordem: 0 });
+      var fim = recadoDeFim(c);
+      if (fim) fora.push({ cliente: c, recado: fim, ordem: 1 });
+    });
+    return fora.sort(function (a, b) { return a.ordem - b.ordem; });
+  }
+
   function proximoPagamentoGeral() {
     var datas = estado.clientes.filter(function (c) {
       return resumoCliente(c.id).restante > 0;
@@ -5532,6 +5866,11 @@
   function desenharInicio() {
     var tela = $('telaInicio');
     tela.textContent = '';
+
+    // O extrato das contas fica pronto só enquanto a Visão geral está
+    // aberta, que é de onde se toca numa conta. Na aba Empreendedor, ou em
+    // qualquer outra tela, o cache é solto.
+    if (abaInicio === 'geral') prepararExtratos(); else soltarExtratos();
 
     tela.appendChild(marcaBarra());
 
@@ -5591,24 +5930,32 @@
     // Fluxo de caixa
     var cFluxo = cartao();
     cFluxo.appendChild(topoDeCartao('Fluxo de caixa', 'Ver todas', function () { irPara('transacoes'); }));
-    cFluxo.appendChild(no('div', 'valorao pequeno num ' + (t.saldo >= 0 ? 'verde' : 'vermelho'), emReais(t.saldo)));
+    // Este cartão é sobre dinheiro que entrou e saiu das contas. A fatura
+    // paga conta aqui; a compra no cartão conta em Despesas. São perguntas
+    // diferentes, e por isso os números podem não bater — está explicado.
+    cFluxo.appendChild(no('div', 'valorao pequeno num ' + (t.saldoCaixa >= 0 ? 'verde' : 'vermelho'), emReais(t.saldoCaixa)));
     cFluxo.appendChild(no('div', 'linha-nota', 'líquido ' + faixa.rotulo));
 
     var barra = no('div', 'barra-dupla');
     barra.style.marginTop = '14px';
-    var soma = t.entradas + t.saidas;
+    var soma = t.entradas + t.saidasCaixa;
     var iE = no('i'); iE.style.width = pct(t.entradas, soma) + '%'; iE.style.background = 'var(--verde)';
-    var iS = no('i'); iS.style.width = pct(t.saidas, soma) + '%'; iS.style.background = 'var(--vermelho)';
+    var iS = no('i'); iS.style.width = pct(t.saidasCaixa, soma) + '%'; iS.style.background = 'var(--vermelho)';
     juntar(barra, iE, iS);
     cFluxo.appendChild(barra);
 
     var duas = no('div', 'duas');
     duas.style.marginTop = '12px';
     duas.appendChild(parDeValores('Entradas', emReais(t.entradas), 'verde'));
-    var dir = parDeValores('Saídas', emReais(t.saidas), 'vermelho');
+    var dir = parDeValores('Saídas', emReais(t.saidasCaixa), 'vermelho');
     dir.style.textAlign = 'right';
     duas.appendChild(dir);
     cFluxo.appendChild(duas);
+    if (t.saidasCaixa !== t.saidas) {
+      cFluxo.appendChild(no('div', 'linha-nota',
+        'O que saiu das contas. A compra no cartão sai daqui quando a fatura é paga — ' +
+        'o gasto em si aparece em Despesas.'));
+    }
     tela.appendChild(cFluxo);
 
     // Distribuição, das saídas ou das entradas
@@ -5638,6 +5985,11 @@
       if (outros > 0) seg.push({ nome: 'Demais', valor: outros, cor: '#4B5A6B' });
       cGastos.appendChild(rosca(seg, gastos.total, ehEntrada ? 'Receitas' : 'Gastos'));
       cGastos.appendChild(legenda(seg, gastos.total));
+    }
+    if (gastos.valorDasFaturas > 0) {
+      cGastos.appendChild(no('div', 'linha-nota',
+        emReais(gastos.valorDasFaturas) + ' de fatura paga ficou de fora: as compras do cartão ' +
+        'já estão contadas aqui, uma vez só.'));
     }
     tela.appendChild(cGastos);
 
@@ -6205,6 +6557,19 @@
     }
     tela.appendChild(cResumo);
 
+    // Os recados vêm antes da lista: são coisas para fazer hoje.
+    recadosDosClientes().slice(0, 4).forEach(function (r) {
+      var cr = cartao('recado tom-' + r.recado.tom);
+      var topo = no('div', 'recado-topo');
+      topo.appendChild(no('span', 'recado-icone', r.recado.icone));
+      topo.appendChild(no('span', 'recado-texto', r.recado.texto));
+      cr.appendChild(topo);
+      var b = botao('btn-acao', (r.ordem === 0 ? 'Ver ' : 'Abrir ') + r.cliente.nome + ' ›',
+        function () { abrirFichaCliente(r.cliente.id); });
+      cr.appendChild(b);
+      tela.appendChild(cr);
+    });
+
     var cClientes = cartao('liso');
     var topo = topoDeCartao('Clientes', '+ Novo', function () { abrirFolhaCliente(null); });
     topo.style.padding = '16px 16px 0';
@@ -6249,7 +6614,10 @@
         var fim = no('div', 'linha-fim');
         fim.appendChild(no('div', 'linha-valor num ' +
           (atrasado ? 'vermelho' : r.restante > 0 ? 'ouro' : 'verde'), emReais(r.restante)));
-        fim.appendChild(no('span', 'etiqueta ' + sit.classe, sit.texto));
+        var caiHoje = !atrasado && parcelasDeHoje(c.id).length > 0;
+        fim.appendChild(caiHoje
+          ? no('span', 'etiqueta hoje', 'cai hoje')
+          : no('span', 'etiqueta ' + sit.classe, sit.texto));
 
         juntar(alvo, selo(atrasado ? '#FF6B6B' : sit.classe === 'quitado' ? '#3DDC84' : '#E9B44C',
           c.nome.charAt(0).toUpperCase()), texto, fim);
@@ -6807,19 +7175,33 @@
         var todasParcelas = parcelasDoCliente(id);
         if (todasParcelas.length) {
           var pagasAgora = todasParcelas.filter(parcelaPaga).length;
+          var acrescimos = estado.servicos.filter(function (sv) {
+            return sv.clienteId === id && ehAcrescimoDeParcelamento(sv);
+          });
+          var somaAcrescimos = acrescimos.reduce(function (soma, sv) { return soma + sv.valor; }, 0);
           acoes.appendChild(botao('btn btn-perigo', 'Apagar as ' + todasParcelas.length + ' parcelas', function () {
             perguntar({
               titulo: 'Apagar o parcelamento inteiro?',
               texto: 'Saem todas as ' + todasParcelas.length + ' parcelas' +
                 (pagasAgora ? (pagasAgora === 1 ? ', inclusive a que já foi paga'
                                                 : ', inclusive as ' + pagasAgora + ' já pagas') : '') +
-                '. Os registros e os pagamentos continuam como estão, e o que o cliente deve não muda — ' +
-                'só o parcelamento é desfeito.',
+                (acrescimos.length
+                  ? ', e também o acréscimo do parcelamento, de ' + emReais(somaAcrescimos) +
+                    ', que só existia por causa dele'
+                  : '') +
+                '. Os seus registros e os pagamentos continuam como estão — só o parcelamento é desfeito.',
               ok: 'Apagar tudo', tom: 'perigo'
             }, function () {
               var fora = {};
               todasParcelas.forEach(function (p) { fora[p.id] = true; marcarExcluido('parcelas', p.id); });
               estado.parcelas = estado.parcelas.filter(function (p) { return !fora[p.id]; });
+              // O acréscimo só existia por causa do parcelamento: desfeito o
+              // parcelamento, ele sai junto, senão fica cobrando sozinho.
+              estado.servicos = estado.servicos.filter(function (sv) {
+                if (sv.clienteId !== id || !ehAcrescimoDeParcelamento(sv)) return true;
+                marcarExcluido('servicos', sv.id);
+                return false;
+              });
               // Os pagamentos ficam, mas soltos: sem parcela para apontar.
               estado.pagamentos.forEach(function (g) { if (fora[g.parcelaId]) g.parcelaId = ''; });
               salvar();
@@ -7063,6 +7445,9 @@
       var aParcelar = Math.max(cheio - entrada, 0);
       var planos = [];
       for (var v = 1; v <= ateDireto; v++) {
+        // Mesma regra do parcelamento de cliente: o acréscimo conta uma vez
+        // para cada parcela depois da primeira, então o à vista sai pelo
+        // total do orçamento e cada opção sobe um degrau.
         var c = calcularParcelas(aParcelar, v, d.modo || 'nenhum',
           d.modo === 'porcento' ? (Number(d.acrescimo) || 0) : inteiro(d.acrescimo),
           ehData(d.primeira) ? d.primeira : hojeTexto(), 0, 0);
@@ -7642,9 +8027,16 @@
             var det = 'até ' + maior.vezes + 'x de ' + emReais(primeiro);
             if (d.entrada) det = 'entrada de ' + emReais(d.entrada) + ' + ' + det;
             resumo.appendChild(no('div', 'rotulo', 'Parcelado direto comigo'));
+            // O à vista aparece aqui para você conferir que ele bate com o
+            // total do orçamento antes de mandar o PDF.
+            if (maior.vezes > 1) {
+              resumo.appendChild(linhaDePreco('À vista', d.planos[0].total,
+                'sem acréscimo — é o total do orçamento'));
+            }
             resumo.appendChild(linhaDePreco('Até ' + maior.vezes + 'x', maior.total, det));
             resumo.appendChild(no('div', 'linha-nota',
-              'No PDF vão as ' + d.planos.length + ' opções, de 1x a ' + maior.vezes + 'x.'));
+              'No PDF vão as ' + d.planos.length + ' opções, de 1x a ' + maior.vezes + 'x. ' +
+              'O acréscimo entra a partir de 2x.'));
           }
           var soma = [];
           if (pr.materiais) soma.push('materiais ' + emReais(pr.materiais));
@@ -8137,9 +8529,16 @@
         cPag.appendChild(rotD);
         pr.direto.planos.forEach(function (pl) {
           var pri = pl.itens[0].valor, ult = pl.itens[pl.itens.length - 1].valor;
-          var det2 = pl.vezes + 'x de ' + emReais(pri);
-          if (pl.vezes > 1 && pri !== ult) det2 += ' (última ' + emReais(ult) + ')';
-          if (pl.entrada) det2 = emReais(pl.entrada) + ' + ' + det2;
+          // No à vista o detalhe interessante é justamente não haver acréscimo.
+          var det2;
+          if (pl.vezes === 1) {
+            det2 = pl.entrada ? emReais(pl.entrada) + ' + ' + emReais(pl.total - pl.entrada)
+                              : 'sem acréscimo';
+          } else {
+            det2 = pl.vezes + 'x de ' + emReais(pri);
+            if (pri !== ult) det2 += ' (última ' + emReais(ult) + ')';
+            if (pl.entrada) det2 = emReais(pl.entrada) + ' + ' + det2;
+          }
           precoPronto(pl.vezes === 1 ? 'À vista' : pl.vezes + 'x', pl.total, det2);
         });
       }
@@ -8337,8 +8736,10 @@
   // totalAlvo > 0 manda: o total é o que você escreveu, e as parcelas saem
   // da divisão dele. Sem ele, o total vem do valor mais o acréscimo.
   // A sobra da divisão fica na última parcela, que é onde a pessoa espera.
+  // A sobra quebrada fica na última parcela, e para baixo: arredondando a
+  // fatia para cima, a última é a menor e nenhuma passa do valor anunciado.
   function espalhar(total, vezes, primeira) {
-    var fatia = Math.floor(total / vezes);
+    var fatia = Math.ceil(total / vezes);
     var itens = [];
     var acumulado = 0;
     for (var i = 0; i < vezes; i++) {
@@ -8376,30 +8777,70 @@
       return { itens: itens, total: totalAlvo, acrescimoTotal: totalAlvo - base, manual: true };
     }
 
-    var fatia = Math.floor(base / vezes);
-    var sobra = base - fatia * vezes;
-    for (var i = 0; i < vezes; i++) {
-      var semAcrescimo = fatia + (i === vezes - 1 ? sobra : 0);
-      var valor = semAcrescimo;
-      if (modo === 'porcento' && acrescimo > 0) valor = Math.round(semAcrescimo * (1 + acrescimo / 100));
-      if (modo === 'reais' && acrescimo > 0) valor = semAcrescimo + acrescimo;
-      itens.push({
-        numero: i + 1,
-        total: vezes,
-        valor: valor,
-        semAcrescimo: semAcrescimo,
-        vencimento: somaMeses(primeira, i)
-      });
+    // O acréscimo é o preço de esperar: conta uma vez para cada parcela
+    // depois da primeira. À vista não há espera, então o total é o valor
+    // combinado. Com R$ 100 por parcela sobre R$ 1.000,00:
+    // 1x 1.000,00 · 2x 1.100,00 · 3x 1.200,00 · 4x 1.300,00.
+    var esperas = vezes - 1;
+    var extra = 0;
+    if (acrescimo > 0) {
+      if (modo === 'porcento') extra = Math.round(base * acrescimo / 100) * esperas;
+      else if (modo === 'reais') extra = acrescimo * esperas;
     }
-    var total = itens.reduce(function (soma, p) { return soma + p.valor; }, 0);
+    var total = base + extra;
 
     // Com o valor da parcela escolhido, o acréscimo já está no total: só
     // refaço a divisão pelo valor pedido.
     if (porParcela > 0) {
       return { itens: porValorDaParcela(total, porParcela, primeira), total: total,
-               acrescimoTotal: total - base, manual: false, porParcela: true };
+               acrescimoTotal: extra, manual: false, porParcela: true };
     }
-    return { itens: itens, total: total, acrescimoTotal: total - base, manual: false };
+    return { itens: espalhar(total, vezes, primeira), total: total,
+             acrescimoTotal: extra, manual: false };
+  }
+
+  // Os registros que o próprio app cria ao combinar um parcelamento. Eles
+  // existem só enquanto o parcelamento existe.
+  var NOME_ACRESCIMO = /^acr[eé]scimo (do parcelamento|sobre o valor)/i;
+
+  function ehAcrescimoDeParcelamento(sv) {
+    return NOME_ACRESCIMO.test(String(sv.nome || ''));
+  }
+
+  // Mexeu numa parcela, o total do cliente tem que acompanhar — para mais ou
+  // para menos. Quem carrega essa diferença é o registro de acréscimo que o
+  // parcelamento criou: ele sobe, desce ou some, e os registros do próprio
+  // cliente não são tocados. Se as parcelas cobrem menos do que ele deve,
+  // não há acréscimo nenhum: é só um parcelamento parcial.
+  function ajustarAcrescimoDoParcelamento(clienteId) {
+    var parcelas = parcelasDoCliente(clienteId);
+    var doApp = null;
+    var proprios = 0;
+    servicosDoCliente(clienteId).forEach(function (sv) {
+      if (ehAcrescimoDeParcelamento(sv)) { if (!doApp) doApp = sv; return; }
+      proprios += sv.valor;
+    });
+
+    var combinado = parcelas.reduce(function (soma, p) { return soma + p.valor; }, 0);
+    var falta = parcelas.length ? combinado - proprios : 0;
+
+    if (falta > 0) {
+      if (doApp) { doApp.valor = falta; return; }
+      var quantas = parcelas.length;
+      estado.servicos.push({
+        id: novoId(), clienteId: clienteId,
+        nome: quantas > 1 ? 'Acréscimo do parcelamento em ' + quantas + 'x'
+                          : 'Acréscimo sobre o valor combinado',
+        tipo: TIPO_PADRAO, valor: falta,
+        data: parcelas[0].vencimento, obs: '', criadoEm: Date.now()
+      });
+      return;
+    }
+
+    if (doApp) {
+      marcarExcluido('servicos', doApp.id);
+      estado.servicos = estado.servicos.filter(function (sv) { return sv.id !== doApp.id; });
+    }
   }
 
   function abrirFolhaParcelamento(clienteId, servicoId) {
@@ -8440,14 +8881,14 @@
       var campoVezes = entradaSelecao(opcoesVezes, '1', 'Em quantas vezes');
       forma.appendChild(campo('Em quantas vezes', campoVezes));
 
-      // Escolher o valor da parcela é o outro jeito de dizer a mesma coisa:
-      // o app tira a quantidade da conta e deixa o quebrado na última.
+      // Quantidade, valor da parcela e total dizem a mesma coisa de três
+      // jeitos. Preenchendo dois, o terceiro se completa sozinho.
       var parcelaManual = 0;
       var campoPorParcela = entradaValor(0, false);
       forma.appendChild(campo('Ou o valor de cada parcela', campoPorParcela));
       var notaParcela = no('div', 'linha-nota',
-        'Escrevendo aqui, o app descobre em quantas vezes cabe e põe o que sobrar na última parcela. ' +
-        'Deixe zerado para mandar pela quantidade de vezes.');
+        'Quantidade, valor da parcela e total se completam: preencha dois e o app calcula o terceiro. ' +
+        'O que sobrar quebrado fica na última parcela, sempre para baixo.');
       notaParcela.style.margin = '-8px 0 16px';
       forma.appendChild(notaParcela);
 
@@ -8468,13 +8909,12 @@
       caixaReais.style.display = 'none';
       forma.appendChild(caixaReais);
 
-      // Se você escrever o total, ele manda: as parcelas saem da divisão dele.
       var totalManual = 0;
       var campoTotal = entradaValor(sugestao, false);
       campoTotal.style.color = 'var(--ouro)';
       forma.appendChild(campo('Total a cobrar', campoTotal));
       var notaTotal = no('div', 'linha-nota',
-        'Mexeu aqui, o app divide esse total pelas parcelas. Mexeu no valor ou no acréscimo, ele volta a calcular sozinho.');
+        'Mexendo no valor a combinar ou no acréscimo, o total volta a ser calculado sozinho.');
       notaTotal.style.margin = '-8px 0 16px';
       forma.appendChild(notaTotal);
 
@@ -8493,13 +8933,79 @@
         return 0;
       }
 
+      function quando() {
+        return ehData(campoData.value) ? campoData.value : hojeTexto();
+      }
+
+      // Quantidade, valor da parcela e total são três jeitos de dizer a
+      // mesma coisa. Os dois últimos que a pessoa mexeu mandam no terceiro:
+      //
+      //   3x + R$ 300,00      -> total R$ 900,00
+      //   R$ 900,00 + 3x      -> parcelas de R$ 300,00
+      //   R$ 900,00 + R$ 300  -> 3x
+      //
+      // Sem nada escrito à mão, vale a conta de sempre: valor a combinar
+      // mais acréscimo, dividido pelas vezes.
+      var mexidos = [];
+      var digitando = '';
+
+      function mexeu(campo) {
+        mexidos = [campo].concat(mexidos.filter(function (c) { return c !== campo; })).slice(0, 2);
+      }
+
       function contas() {
-        return calcularParcelas(
-          digitosParaCentavos(campoValorEl.value),
-          vezes, modo, lerAcrescimo(),
-          ehData(campoData.value) ? campoData.value : hojeTexto(),
-          totalManual, parcelaManual
-        );
+        var base = digitosParaCentavos(campoValorEl.value);
+        var quandoVence = quando();
+        var natural = calcularParcelas(base, vezes, modo, lerAcrescimo(), quandoVence, 0, 0);
+        var dupla = mexidos.slice(0, 2);
+        var comParcela = parcelaManual > 0 && dupla.indexOf('parcela') >= 0;
+        var comTotal = totalManual > 0 && dupla.indexOf('total') >= 0;
+        var comVezes = dupla.indexOf('vezes') >= 0;
+        var r;
+
+        if (comParcela && comVezes) {
+          var alvo = parcelaManual * vezes;
+          r = { itens: espalhar(alvo, vezes, quandoVence), total: alvo };
+        } else if (comParcela && comTotal) {
+          r = { itens: porValorDaParcela(totalManual, parcelaManual, quandoVence), total: totalManual };
+        } else if (comParcela) {
+          r = { itens: porValorDaParcela(natural.total, parcelaManual, quandoVence),
+                total: natural.total };
+        } else if (comTotal) {
+          r = { itens: espalhar(totalManual, vezes, quandoVence), total: totalManual };
+        } else {
+          r = { itens: natural.itens, total: natural.total };
+        }
+
+        r.base = base;
+        r.acrescimoTotal = r.total - base;
+        r.manual = totalManual > 0 || parcelaManual > 0;
+        return r;
+      }
+
+      // A régua do acréscimo é o que já está registrado, não o que foi
+      // digitado. Subir o "valor a combinar" acima do que o cliente deve
+      // cobra a mais do mesmo jeito que um acréscimo por parcela, e sem
+      // contar isso a ficha ficava com as parcelas somando mais que o total
+      // do cliente — e ainda oferecendo "Acertar as parcelas".
+      //
+      // Com um registro escolhido, a régua é o valor dele. Sem registro
+      // escolhido, é o que o cliente tem registrado e ainda não foi
+      // parcelado. Sem nada registrado não há régua: aí o parcelamento não
+      // é acréscimo de coisa nenhuma e o app não inventa registro.
+      function referenciaDoCombinado() {
+        var sv = campoServico.value ? achar(estado.servicos, campoServico.value) : null;
+        if (sv) return sv.valor;
+        var registrado = servicosDoCliente(clienteId)
+          .reduce(function (soma, x) { return soma + x.valor; }, 0);
+        var parcelado = parcelasDoCliente(clienteId)
+          .reduce(function (soma, x) { return soma + x.valor; }, 0);
+        return Math.max(registrado - parcelado, 0);
+      }
+
+      function acrescimoACobrar(c) {
+        var referencia = referenciaDoCombinado();
+        return referencia > 0 ? Math.max(c.total - referencia, 0) : 0;
       }
 
       function pintarResumo() {
@@ -8510,13 +9016,21 @@
           return;
         }
         var c = contas();
-        if (!totalManual) campoTotal.value = emReais(c.total);
-
-        // Mandando pelo valor da parcela, a quantidade de vezes segue a conta.
         var quantas = c.itens.length;
-        if (c.porParcela && quantas !== vezes) {
-          vezes = quantas;
-          campoVezes.value = String(Math.min(quantas, 24));
+
+        // Os três campos ficam mostrando a mesma conta. Só não mexo no que
+        // está sendo digitado agora, senão o cursor pula debaixo do dedo.
+        if (digitando !== 'total') {
+          campoTotal.value = emReais(c.total);
+          if (totalManual > 0) totalManual = c.total;
+        }
+        if (digitando !== 'parcela') {
+          campoPorParcela.value = emReais(c.itens[0].valor);
+          parcelaManual = c.itens[0].valor;
+        }
+        if (quantas !== vezes) {
+          vezes = Math.min(quantas, 24);
+          campoVezes.value = String(vezes);
         }
 
         resumo.appendChild(no('div', 'rotulo', 'Vai ser cobrado'));
@@ -8528,9 +9042,14 @@
             ' e a última de ' + emReais(ultimo);
         }
         resumo.appendChild(no('div', 'linha-nota', detalhe));
-        if (c.acrescimoTotal > 0) {
+        var extra = acrescimoACobrar(c);
+        if (extra > 0) {
+          var svRef = campoServico.value ? achar(estado.servicos, campoServico.value) : null;
           resumo.appendChild(no('div', 'linha-nota ouro',
-            'Acréscimo de ' + emReais(c.acrescimoTotal) + ' sobre os ' + emReais(base) + ' combinados.'));
+            'Acréscimo de ' + emReais(extra) + ' sobre os ' +
+            emReais(referenciaDoCombinado()) +
+            (svRef ? ' de "' + svRef.nome + '"' : ' que o cliente já deve') +
+            '. Vai entrar como um registro novo na ficha.'));
         } else if (c.acrescimoTotal < 0) {
           resumo.appendChild(no('div', 'linha-nota verde',
             'Desconto de ' + emReais(-c.acrescimoTotal) + ' sobre os ' + emReais(base) + ' combinados.'));
@@ -8554,27 +9073,38 @@
         resumo.appendChild(lista);
       }
 
-      // Mexer no valor, nas vezes ou no acréscimo devolve o total ao cálculo.
-      function recalcular() { totalManual = 0; pintarResumo(); }
-      campoValorEl.addEventListener('input', recalcular);
-      campoPorParcela.addEventListener('input', function () {
-        parcelaManual = digitosParaCentavos(campoPorParcela.value);
+      // Mexer no valor a combinar ou no acréscimo devolve tudo ao cálculo:
+      // aí a conta volta a ser valor + acréscimo dividido pelas vezes.
+      function recalcular() {
+        totalManual = 0;
+        parcelaManual = 0;
+        mexidos = [];
         pintarResumo();
-      });
-      campoData.addEventListener('change', pintarResumo);
+      }
+      campoValorEl.addEventListener('input', recalcular);
       campoPorcento.addEventListener('input', recalcular);
       campoReais.addEventListener('input', recalcular);
+      campoData.addEventListener('change', pintarResumo);
       campoJuros.addEventListener('input', pintarResumo);
-      campoTotal.addEventListener('input', function () {
-        totalManual = digitosParaCentavos(campoTotal.value);
+
+      campoPorParcela.addEventListener('input', function () {
+        digitando = 'parcela';
+        parcelaManual = digitosParaCentavos(campoPorParcela.value);
+        mexeu('parcela');
         pintarResumo();
+        digitando = '';
+      });
+      campoTotal.addEventListener('input', function () {
+        digitando = 'total';
+        totalManual = digitosParaCentavos(campoTotal.value);
+        mexeu('total');
+        pintarResumo();
+        digitando = '';
       });
       campoVezes.aoMudar = function (v) {
-        // Escolher as vezes na mão desliga o comando pelo valor da parcela.
-        parcelaManual = 0;
-        campoPorParcela.value = emReais(0);
         vezes = parseInt(v, 10) || 1;
-        recalcular();
+        mexeu('vezes');
+        pintarResumo();
       };
       campoModo.aoMudar = function (v) {
         modo = v;
@@ -8592,10 +9122,11 @@
         var c = contas();
 
         var ultimaP = c.itens[c.itens.length - 1];
+        var extraACobrar = acrescimoACobrar(c);
         perguntar({
           titulo: 'Confirmar ' + c.itens.length + 'x de ' + emReais(c.itens[0].valor) + '?',
           texto: 'Total de ' + emReais(c.total) +
-            (c.acrescimoTotal > 0 ? ', com ' + emReais(c.acrescimoTotal) + ' de acréscimo' : '') +
+            (extraACobrar > 0 ? ', com ' + emReais(extraACobrar) + ' de acréscimo' : '') +
             (c.itens.length > 1 && ultimaP.valor !== c.itens[0].valor
               ? '. A última fica em ' + emReais(ultimaP.valor) : '') +
             '. Primeira em ' + dataBr(c.itens[0].vencimento) +
@@ -8619,12 +9150,16 @@
               criadoEm: Date.now()
             });
           });
-          // O acréscimo é dinheiro a mais a receber: entra como registro próprio.
-          if (c.acrescimoTotal > 0) {
+          // O acréscimo é dinheiro a mais a receber: entra como registro
+          // próprio, seja ele do acréscimo por parcela ou do total escrito
+          // na mão. À vista não há parcelamento, então o nome muda.
+          if (extraACobrar > 0) {
             estado.servicos.push({
               id: novoId(), clienteId: clienteId,
-              nome: 'Acréscimo do parcelamento em ' + c.itens.length + 'x',
-              tipo: TIPO_PADRAO, valor: c.acrescimoTotal,
+              nome: c.itens.length > 1
+                ? 'Acréscimo do parcelamento em ' + c.itens.length + 'x'
+                : 'Acréscimo sobre o valor combinado',
+              tipo: TIPO_PADRAO, valor: extraACobrar,
               data: c.itens[0].vencimento, obs: '', criadoEm: Date.now()
             });
           }
@@ -8692,14 +9227,18 @@
         var valor = digitosParaCentavos(campoValorEl.value);
         if (valor <= 0) { mostrarErro(forma, 'Informe o valor da parcela.'); return; }
         if (!ehData(campoData.value)) { mostrarErro(forma, 'Escolha uma data válida.'); return; }
+        var antes = parcela.valor;
         parcela.valor = valor;
         parcela.vencimento = campoData.value;
         parcela.servicoId = campoServico.value;
         parcela.minimo = 0;
         parcela.jurosAtraso = Math.min(Math.max(comoNumero(campoJuros.value, 0), 0), 100);
+        ajustarAcrescimoDoParcelamento(clienteId);
         salvar();
         voltarNavegacao();
-        avisar('Parcela atualizada.');
+        avisar(valor === antes ? 'Parcela atualizada.'
+          : 'Parcela atualizada. O total do cliente acompanhou (' +
+            (valor > antes ? '+' : '−') + emReais(Math.abs(valor - antes)) + ').');
       }));
       acoes.appendChild(botao('btn btn-perigo', 'Excluir esta parcela', function () {
         perguntar({
@@ -8709,6 +9248,7 @@
         }, function () {
           marcarExcluido('parcelas', parcela.id);
           estado.parcelas = estado.parcelas.filter(function (p) { return p.id !== parcela.id; });
+          ajustarAcrescimoDoParcelamento(clienteId);
           salvar();
           voltarNavegacao();
           avisar('Parcela excluída.');
@@ -9177,27 +9717,11 @@
   function lancamentosDoPeriodo() { return lancamentosNaFaixa(); }
 
   function totaisNaFaixa(faixa) {
-    var entradas = 0, saidas = 0;
-    lancamentosNaFaixa(faixa).forEach(function (l) {
-      if (l.tipo === 'entrada') entradas += l.valor;
-      else if (l.tipo === 'saida') saidas += l.valor;
-    });
-    return { entradas: entradas, saidas: saidas, saldo: entradas - saidas };
+    return totaisDaLista(lancamentosNaFaixa(faixa));
   }
 
   function gastosNaFaixa(faixa, tipo) {
-    var lado = tipo === 'entrada' ? 'entrada' : 'saida';
-    var mapa = {};
-    var total = 0;
-    lancamentosNaFaixa(faixa).forEach(function (l) {
-      if (l.tipo !== lado) return;
-      mapa[l.categoria] = (mapa[l.categoria] || 0) + l.valor;
-      total += l.valor;
-    });
-    var lista = Object.keys(mapa).map(function (nome) {
-      return { nome: nome, valor: mapa[nome] };
-    }).sort(function (a, b) { return b.valor - a.valor; });
-    return { lista: lista, total: total };
+    return porCategoriaDaLista(lancamentosNaFaixa(faixa), tipo);
   }
 
   // ---------- Escolher o período ----------
@@ -9347,6 +9871,15 @@
       d.appendChild(no('div', 'v ' + item[2], item[0] === 'Lançamentos' ? String(item[1]) : emReais(item[1])));
       gradeResumo.appendChild(d);
     });
+    // Por que a soma da tela não bate com a conta de cabeça: a fatura paga
+    // está listada, mas não entra em "Saídas" para não contar duas vezes.
+    if (totais.valorDasFaturas > 0) {
+      var notaFat = no('div', 'linha-nota',
+        'Fora de "Saídas": ' + emReais(totais.valorDasFaturas) + ' de fatura paga. ' +
+        'O gasto já está nas compras do cartão.');
+      notaFat.style.marginTop = '10px';
+      resumo.appendChild(notaFat);
+    }
     resumo.appendChild(gradeResumo);
     resumo.appendChild(no('div', 'linha-nota', 'De ' + dataBr(faixa.de) + ' a ' + dataBr(faixa.ate) + '.'));
     alvo.appendChild(resumo);
@@ -9365,6 +9898,9 @@
     } else {
       var conta = achar(estado.contas, l.contaId);
       sub = l.categoria + (conta ? ' · ' + conta.nome : '');
+      // A linha continua aqui, com o valor certo — ela só não entra no
+      // total de despesas, e a pessoa merece saber disso olhando.
+      if (l.tipo === 'saida' && !contaComoDespesa(l)) sub += ' · não conta como despesa';
     }
 
     juntar(b,
@@ -9380,13 +9916,59 @@
   }
 
   // Lançamentos que passaram por esta conta, do mais novo para o mais antigo.
+  // Abrir o extrato de uma conta com muitos lançamentos demorava um tempo
+  // visível: filtrar e ordenar tudo acontecia no toque. Como na Visão geral
+  // as contas estão ali na tela, esperando um toque, a conta é feita antes,
+  // na folga do navegador. Saindo da Visão geral o cache é solto: não vale
+  // ocupar memória com o que não vai ser aberto.
+  var extratoPronto = {};
+  var preparoMarcado = 0;
+
   function lancamentosDaConta(id) {
-    return estado.lancamentos.filter(function (l) {
+    if (extratoPronto[id]) return extratoPronto[id];
+    var fora = estado.lancamentos.filter(function (l) {
       return l.contaId === id || l.contaDestinoId === id;
     }).sort(function (a, b) {
       if (a.data !== b.data) return a.data < b.data ? 1 : -1;
       return (b.criadoEm || 0) - (a.criadoEm || 0);
     });
+    return fora;
+  }
+
+  function soltarExtratos() {
+    extratoPronto = {};
+    if (preparoMarcado) {
+      if (window.cancelIdleCallback) cancelIdleCallback(preparoMarcado);
+      else clearTimeout(preparoMarcado);
+      preparoMarcado = 0;
+    }
+  }
+
+  // Uma conta por vez, sempre na folga: com muitas contas o preparo não pode
+  // virar o próprio travamento que ele existe para evitar.
+  function prepararExtratos() {
+    soltarExtratos();
+    var fila = estado.contas.map(function (c) { return c.id; });
+    var naFolga = window.requestIdleCallback ||
+      function (fn) { return setTimeout(function () { fn({ timeRemaining: function () { return 8; } }); }, 60); };
+
+    function passo(prazo) {
+      preparoMarcado = 0;
+      while (fila.length && (!prazo || prazo.timeRemaining() > 4)) {
+        var id = fila.shift();
+        if (!extratoPronto[id]) {
+          extratoPronto[id] = estado.lancamentos.filter(function (l) {
+            return l.contaId === id || l.contaDestinoId === id;
+          }).sort(function (a, b) {
+            if (a.data !== b.data) return a.data < b.data ? 1 : -1;
+            return (b.criadoEm || 0) - (a.criadoEm || 0);
+          });
+        }
+      }
+      if (fila.length) preparoMarcado = naFolga(passo);
+    }
+
+    if (fila.length) preparoMarcado = naFolga(passo);
   }
 
   // Quanto este lançamento mexeu nesta conta: positivo entra, negativo sai.
@@ -9868,18 +10450,45 @@
         porDia[l.data].push(l);
       });
 
-      ordem.forEach(function (data) {
-        var doDia = porDia[data];
-        var totalDia = doDia.reduce(function (soma, l) { return soma + efeitoNaConta(l, id); }, 0);
+      // Uma conta com anos de extrato tem milhares de linhas, e montar todas
+      // de uma vez é o que fazia o toque demorar. Vão em blocos: o primeiro
+      // aparece na hora e o resto só se a pessoa descer.
+      var POR_VEZ = 150;
+      var desenhados = 0;
+      var caixaMais = no('div');
 
-        var cab = no('div', 'dia-cabecalho');
-        juntar(cab, no('div', 'dia-nome', nomeDoDia(data)), no('div', 'dia-total num', comSinal(totalDia)));
-        folha.appendChild(cab);
+      function maisUmBloco() {
+        var linhas = 0;
+        while (desenhados < ordem.length && linhas < POR_VEZ) {
+          var data = ordem[desenhados++];
+          var doDia = porDia[data];
+          var totalDia = doDia.reduce(function (soma, l) { return soma + efeitoNaConta(l, id); }, 0);
 
-        var cartaoDia = cartao('liso');
-        doDia.forEach(function (l) { cartaoDia.appendChild(linhaExtrato(l, id)); });
-        folha.appendChild(cartaoDia);
-      });
+          var cab = no('div', 'dia-cabecalho');
+          juntar(cab, no('div', 'dia-nome', nomeDoDia(data)), no('div', 'dia-total num', comSinal(totalDia)));
+          folha.insertBefore(cab, caixaMais);
+
+          var cartaoDia = cartao('liso');
+          doDia.forEach(function (l) { cartaoDia.appendChild(linhaExtrato(l, id)); });
+          folha.insertBefore(cartaoDia, caixaMais);
+          linhas += doDia.length;
+        }
+        pintarMais();
+      }
+
+      function pintarMais() {
+        caixaMais.textContent = '';
+        if (desenhados >= ordem.length) return;
+        var faltam = itens.length;
+        for (var i = 0; i < desenhados; i++) faltam -= porDia[ordem[i]].length;
+        var b = botao('btn btn-fantasma', 'Ver mais ' + faltam + ' movimento' + (faltam === 1 ? '' : 's'),
+          function () { maisUmBloco(); });
+        b.style.marginTop = '12px';
+        caixaMais.appendChild(b);
+      }
+
+      folha.appendChild(caixaMais);
+      maisUmBloco();
     });
   }
 
@@ -10179,134 +10788,1009 @@
   }
 
   // ---------- Análises calculadas ----------
+  // =========================================================================
+  // Motor de análise. Um princípio manda em tudo aqui: nada é inventado.
+  // Quando não há histórico suficiente para uma afirmação, a afirmação não
+  // é feita — o app diz que ainda está conhecendo o padrão da pessoa.
+  // =========================================================================
 
-  function normalizar(descricao) {
-    return descricao.toLowerCase().replace(/\d+/g, '').replace(/[^a-zà-ú ]/gi, '').trim();
+  var META_ECONOMIA_PADRAO = 20;   // % da renda, quando a pessoa não escolheu
+
+  function metaDeEconomia() {
+    var m = estado.perfil && estado.perfil.metaEconomia;
+    return m == null ? META_ECONOMIA_PADRAO : Math.min(Math.max(inteiro(m), 1), 90);
   }
 
-  // Só categorias em que faz sentido sugerir corte: aluguel e imposto não se cancela.
-  var CANCELAVEIS = ['Assinaturas', 'Lazer', 'Educação', 'Alimentação', 'Outros'];
+  // Meses que têm algum lançamento, do mais antigo para o mais novo.
+  function mesesComLancamento() {
+    var vistos = {};
+    estado.lancamentos.forEach(function (l) { if (l.data) vistos[l.data.slice(0, 7)] = true; });
+    return Object.keys(vistos).sort();
+  }
 
-  function assinaturasProvaveis() {
+  // As compras lançadas dentro dos cartões, por mês.
+  function comprasNoCartao(ano, mes) {
+    var ids = {};
+    cartoes().forEach(function (c) { ids[c.id] = c; });
+    var fora = [];
+    lancamentosDoMes(ano, mes).forEach(function (l) {
+      if (l.tipo === 'saida' && ids[l.contaId]) fora.push(l);
+    });
+    return fora;
+  }
+
+  // A base de gastos de um mês, já sem contar duas vezes. É a mesma regra
+  // do app inteiro (gastosPorCategoria); aqui só ganha um nome próprio
+  // porque a análise fala dela o tempo todo.
+  function baseDeGastos(ano, mes) {
+    return gastosPorCategoria(ano, mes, 'saida');
+  }
+
+  // A composição de uma fatura: para onde o dinheiro do cartão foi.
+  function composicaoDoCartao(ano, mes) {
+    var mapa = {}, total = 0;
+    comprasNoCartao(ano, mes).forEach(function (l) {
+      mapa[l.categoria] = (mapa[l.categoria] || 0) + l.valor;
+      total += l.valor;
+    });
+    var lista = Object.keys(mapa).map(function (n) { return { nome: n, valor: mapa[n] }; })
+      .sort(function (a, b) { return b.valor - a.valor; });
+    return { lista: lista, total: total };
+  }
+
+  // ---- o padrão da própria pessoa -----------------------------------------
+  // Comparo você com você. Nada de "a média dos brasileiros".
+
+  function percentil(ordenados, p) {
+    if (!ordenados.length) return 0;
+    var i = (ordenados.length - 1) * p;
+    var baixo = Math.floor(i), alto = Math.ceil(i);
+    if (baixo === alto) return ordenados[baixo];
+    return ordenados[baixo] + (ordenados[alto] - ordenados[baixo]) * (i - baixo);
+  }
+
+  // Faixa habitual de uma série. Com poucos meses, a faixa é o intervalo
+  // inteiro; com mais, corto as pontas para o eventual mês esquisito não
+  // virar régua.
+  function faixaDoPadrao(valores) {
+    if (!valores.length) return null;
+    var v = valores.slice().sort(function (a, b) { return a - b; });
+    var meio = percentil(v, 0.5);
+    var de = v.length <= 3 ? v[0] : percentil(v, 0.25);
+    var ate = v.length <= 3 ? v[v.length - 1] : percentil(v, 0.75);
+    return { n: v.length, mediana: Math.round(meio), de: Math.round(de), ate: Math.round(ate) };
+  }
+
+  // Os meses fechados antes do mês em análise, do mais recente para trás.
+  function mesesAnteriores(ano, mes, quantos) {
+    var fora = [];
+    var a = ano, m = mes;
+    for (var i = 0; i < quantos; i++) {
+      var ant = mesAnteriorAo(a, m);
+      a = ant.ano; m = ant.mes;
+      fora.push({ ano: a, mes: m });
+    }
+    return fora;
+  }
+
+  // Histórico de gastos, no total ou de uma categoria. Só entram meses que
+  // tiveram algum lançamento: mês sem registro não é mês de gasto zero.
+  function historicoDeGastos(ano, mes, categoria, quantos) {
+    var comDados = {};
+    mesesComLancamento().forEach(function (k) { comDados[k] = true; });
+    var valores = [];
+    mesesAnteriores(ano, mes, quantos || 6).forEach(function (p) {
+      if (!comDados[prefixoMes(p.ano, p.mes)]) return;
+      var b = baseDeGastos(p.ano, p.mes);
+      if (!categoria) { valores.push(b.total); return; }
+      var achou = 0;
+      b.lista.forEach(function (c) { if (c.nome === categoria) achou = c.valor; });
+      valores.push(achou);
+    });
+    return valores;
+  }
+
+  // ---- despesas que se repetem --------------------------------------------
+
+  function chaveDeRecorrencia(l) {
+    var nome = nomeDeOrigem(l.descricao) || String(l.categoria || '');
+    return nome + '|' + Math.round(l.valor / 100);
+  }
+
+  // Uma despesa é recorrente quando o mesmo nome e o mesmo valor aparecem em
+  // meses diferentes. Isso é fato observado, não chute.
+  function despesasRecorrentes() {
     var grupos = {};
     estado.lancamentos.forEach(function (l) {
-      if (l.tipo !== 'saida' || !l.descricao) return;
-      if (CANCELAVEIS.indexOf(l.categoria) < 0) return;
-      var chave = normalizar(l.descricao) + '|' + l.valor;
-      if (!chave.trim()) return;
+      if (l.tipo !== 'saida' || !l.valor) return;
+      var chave = chaveDeRecorrencia(l);
+      if (!chave || chave.charAt(0) === '|') return;
       (grupos[chave] = grupos[chave] || []).push(l);
     });
 
-    var achados = [];
+    var fora = [];
     Object.keys(grupos).forEach(function (chave) {
-      var itens = grupos[chave];
+      var itens = grupos[chave].slice().sort(function (a, b) { return a.data < b.data ? 1 : -1; });
       var meses = {};
       itens.forEach(function (l) { meses[l.data.slice(0, 7)] = true; });
-      if (Object.keys(meses).length >= 2) {
-        achados.push({ descricao: itens[0].descricao, valor: itens[0].valor, vezes: Object.keys(meses).length });
-      }
+      var quantos = Object.keys(meses).length;
+      if (quantos < 2) return;
+      fora.push({
+        chave: chave,
+        descricao: itens[0].descricao || itens[0].categoria,
+        categoria: itens[0].categoria,
+        valor: itens[0].valor,
+        meses: quantos,
+        ultimo: itens[0].data,
+        lancamentos: itens
+      });
     });
-    return achados.sort(function (a, b) { return b.valor - a.valor; });
+    return fora.sort(function (a, b) { return b.valor - a.valor; });
   }
 
-  function gerarAnalises() {
-    var lista = [];
-    var ant = mesAnteriorAo(mesAtivo.ano, mesAtivo.mes);
-    var atual = gastosPorCategoria(mesAtivo.ano, mesAtivo.mes);
-    var anterior = gastosPorCategoria(ant.ano, ant.mes);
-    var t = totaisDoMes(mesAtivo.ano, mesAtivo.mes);
+  // Categorias em que faz sentido perguntar se ainda vale a pena. Aluguel,
+  // imposto e financiamento não se revisa numa tarde.
+  var REVISAVEIS = ['Assinaturas', 'Lazer', 'Alimentação', 'Outros', 'Casa', 'Transporte'];
 
-    var mapaAnterior = {};
-    anterior.lista.forEach(function (c) { mapaAnterior[c.nome] = c.valor; });
+  function decisaoDeRecorrente(chave) {
+    return (estado.revisados && estado.revisados[chave]) || '';
+  }
 
-    // Maior queda e maior alta por categoria
-    var quedas = [], altas = [];
-    atual.lista.forEach(function (c) {
-      var base = mapaAnterior[c.nome];
-      if (!base) return;
-      var dif = c.valor - base;
-      var p = (dif / base) * 100;
-      if (p <= -8) quedas.push({ nome: c.nome, p: p, dif: dif });
-      if (p >= 8) altas.push({ nome: c.nome, p: p, dif: dif });
+  // O que pode merecer uma olhada — nunca "o que você deve cancelar".
+  function recorrentesRevisaveis() {
+    return despesasRecorrentes().filter(function (r) {
+      if (decisaoDeRecorrente(r.chave) === 'manter') return false;
+      return REVISAVEIS.indexOf(r.categoria) >= 0;
     });
-    quedas.sort(function (a, b) { return a.p - b.p; });
-    altas.sort(function (a, b) { return b.p - a.p; });
+  }
 
-    if (quedas.length) {
-      var q = quedas[0];
-      lista.push({
-        tom: 'bom', pino: '↓', cor: 'var(--verde)', titulo: 'Boa!',
-        texto: 'Seus gastos com ' + q.nome.toLowerCase() + ' caíram ' +
-          Math.abs(q.p).toFixed(0) + '% em ' + MESES[mesAtivo.mes] + ' comparado ao mês anterior.',
-        destaque: 'Economia de ' + emReais(-q.dif), destaqueCor: 'var(--verde)'
-      });
-    }
+  // ---- nota de saúde financeira -------------------------------------------
+  // Cada parte só entra na conta quando existe dado para ela. Sem metas, sem
+  // orçamento ou sem cartão, essas partes simplesmente não pesam — em vez de
+  // virarem zero e derrubarem a nota de quem não usa aquilo.
 
-    if (altas.length) {
-      var a = altas[0];
-      lista.push({
-        tom: 'atencao', pino: '!', cor: 'var(--ouro)', titulo: 'Atenção',
-        texto: 'Seus gastos com ' + a.nome.toLowerCase() + ' subiram ' +
-          a.p.toFixed(0) + '% em relação ao mês anterior.',
-        destaque: 'Aumento de ' + emReais(a.dif), destaqueCor: 'var(--vermelho)'
-      });
-    }
+  // Guardar é o que sobra. Sobrando zero ou menos, você guardou zero: o
+  // "-16%" que aparecia não era o quanto foi guardado, era o tamanho do
+  // buraco. São coisas diferentes e a tela dizia uma pela outra.
+  function taxaDeGuardado(sobra, entradas) {
+    if (entradas <= 0 || sobra <= 0) return 0;
+    return Math.round((sobra / entradas) * 100);
+  }
 
-    var assinaturas = assinaturasProvaveis();
-    if (assinaturas.length) {
-      var somaAss = assinaturas.reduce(function (s, x) { return s + x.valor; }, 0);
-      lista.push({
-        tom: 'oportunidade', pino: '◇', cor: 'var(--ouro)', titulo: 'Oportunidade',
-        texto: 'Encontramos ' + assinaturas.length + ' cobrança(s) que se repetem todo mês: ' +
-          assinaturas.slice(0, 4).map(function (x) { return x.descricao; }).join(', ') +
-          '. Cancelar o que você não usa libera esse valor.',
-        destaque: 'Até ' + emReais(somaAss) + ' por mês', destaqueCor: 'var(--roxo)'
-      });
+  function fraseDoGuardado(sobra, entradas, meta) {
+    if (sobra > 0) {
+      return 'Você guardou ' + taxaDeGuardado(sobra, entradas) + '% e sua meta é ' + meta + '%.';
     }
+    if (sobra === 0) return 'Você guardou zero este mês. Sua meta é ' + meta + '%.';
+    return 'Você guardou zero este mês: saiu ' + emReais(-sobra) +
+           ' a mais do que entrou. Sua meta é ' + meta + '%.';
+  }
+
+  // O quanto sobrou nos meses fechados, para a meta não ficar presa ao
+  // retrato de um mês só. Mês sem lançamento não conta como mês de sobra
+  // zero: ele simplesmente não tem dado.
+  function historicoDeSobra(ano, mes, quantos) {
+    var comDados = {};
+    mesesComLancamento().forEach(function (m) { comDados[m] = true; });
+    var fora = [];
+    mesesAnteriores(ano, mes, quantos).forEach(function (p) {
+      if (!comDados[prefixoMes(p.ano, p.mes)]) return;
+      var t = totaisDoMes(p.ano, p.mes);
+      if (t.entradas <= 0) return;
+      var sobra = t.entradas - baseDeGastos(p.ano, p.mes).total;
+      fora.push({ ano: p.ano, mes: p.mes, sobra: sobra,
+                  taxa: taxaDeGuardado(sobra, t.entradas) });
+    });
+    return fora;
+  }
+
+  function notaDoHistorico(ano, mes) {
+    var h = historicoDeSobra(ano, mes, 3);
+    if (!h.length) return '';
+    return 'Últimos meses: ' + h.map(function (x) {
+      return MESES[x.mes].slice(0, 3).toLowerCase() + ' ' +
+             (x.sobra > 0 ? emReais(x.sobra) + ' (' + x.taxa + '%)' : 'zero');
+    }).join('  ·  ') + '.';
+  }
+
+  function partesDaSaude(ano, mes) {
+    var partes = [];
+    var t = totaisDoMes(ano, mes);
+    var base = baseDeGastos(ano, mes);
+    var meta = metaDeEconomia();
 
     if (t.entradas > 0) {
-      var taxa = ((t.entradas - t.saidas) / t.entradas) * 100;
-      lista.push({
-        tom: taxa >= 20 ? 'bom' : 'atencao',
-        pino: '%', cor: taxa >= 20 ? 'var(--verde)' : 'var(--ouro)',
-        titulo: taxa >= 20 ? 'Boa taxa de poupança' : 'Sobra apertada',
-        texto: 'Você guardou ' + taxa.toFixed(0) + '% do que entrou em ' + MESES[mesAtivo.mes] +
-          '. ' + (taxa >= 20 ? 'Acima dos 20% que costumam ser recomendados.' : 'O caminho comum é buscar pelo menos 20%.'),
-        destaque: comSinal(t.saldo), destaqueCor: t.saldo >= 0 ? 'var(--verde)' : 'var(--vermelho)'
+      var sobraMes = t.entradas - base.total;
+      var guardado = taxaDeGuardado(sobraMes, t.entradas);
+      partes.push({
+        chave: 'sobra', peso: 30, nota: Math.max(0, Math.min(100, (guardado / meta) * 100)),
+        rotulo: 'Quanto sobrou',
+        detalhe: (sobraMes > 0
+          ? 'guardou ' + guardado + '% da renda'
+          : 'guardou 0% — saíram ' + emReais(-sobraMes) + ' a mais') +
+          ' · sua meta é ' + meta + '%'
       });
     }
 
-    estado.metas.forEach(function (m) {
-      var p = pct(m.guardado, m.alvo);
-      if (p >= 50) {
-        lista.push({
-          tom: 'meta', pino: '◎', cor: 'var(--verde)', titulo: 'Meta em dia',
-          texto: 'Sua meta ' + m.nome + ' está ' + Math.round(p) + '% completa. Faltam ' +
-            emReais(Math.max(0, m.alvo - m.guardado)) + '.',
-          destaque: null
-        });
-      }
+    var hist = historicoDeGastos(ano, mes, null, 6);
+    if (hist.length >= 3) {
+      var p = faixaDoPadrao(hist);
+      var razao = p.mediana > 0 ? base.total / p.mediana : 1;
+      partes.push({
+        chave: 'padrao', peso: 25, nota: Math.max(0, Math.min(100, 100 - (razao - 1) * 200)),
+        rotulo: 'Gastos x seu padrão',
+        detalhe: emReais(base.total) + ' contra ' + emReais(p.mediana) + ' de costume'
+      });
+    }
+
+    if (estado.orcamentos.geral > 0) {
+      var usoOrc = base.total / estado.orcamentos.geral;
+      partes.push({
+        chave: 'orcamento', peso: 15, nota: Math.max(0, Math.min(100, (1.5 - usoOrc) * 200)),
+        rotulo: 'Orçamento do mês',
+        detalhe: Math.round(usoOrc * 100) + '% do que você planejou'
+      });
+    }
+
+    var noCartao = composicaoDoCartao(ano, mes).total;
+    if (cartoes().length && t.entradas > 0 && noCartao > 0) {
+      // Quanto da renda passou pelo cartão neste mês. Metade da renda já é
+      // um sinal; a nota cai conforme esse peso sobe.
+      var peso = noCartao / t.entradas;
+      partes.push({
+        chave: 'cartao', peso: 15, nota: Math.max(0, Math.min(100, 100 - (peso / 0.5) * 100)),
+        rotulo: 'Peso do cartão',
+        detalhe: emReais(noCartao) + ' · ' + Math.round(peso * 100) + '% da sua renda'
+      });
+    }
+
+    if (estado.metas.length) {
+      var soma = 0;
+      estado.metas.forEach(function (m) { soma += Math.min(100, pct(m.guardado, m.alvo)); });
+      partes.push({
+        chave: 'metas', peso: 10, nota: soma / estado.metas.length,
+        rotulo: 'Suas metas',
+        detalhe: estado.metas.length + ' meta(s) em andamento'
+      });
+    }
+
+    // Investir só entra para quem investe: para quem não tem ativo nenhum,
+    // isso não é um defeito, é uma etapa que ainda não começou.
+    var aporte = 0;
+    lancamentosDoMes(ano, mes).forEach(function (l) {
+      if (l.tipo === 'saida' && l.categoria === 'Investimentos') aporte += l.valor;
+    });
+    if (estado.ativos.length || aporte > 0) {
+      var pctAporte = t.entradas > 0 ? (aporte / t.entradas) * 100 : 0;
+      partes.push({
+        chave: 'investir', peso: 10, nota: Math.max(0, Math.min(100, (pctAporte / 10) * 100)),
+        rotulo: 'Quanto foi investido',
+        detalhe: aporte > 0 ? emReais(aporte) + ' no mês' : 'nada aportado neste mês'
+      });
+    }
+
+    return partes;
+  }
+
+  function fimDoMes(ano, mes) {
+    return textoDeData(ano, mes, new Date(ano, mes + 1, 0).getDate());
+  }
+
+  function notaDaSaude(ano, mes) {
+    var partes = partesDaSaude(ano, mes);
+    var mesesTotais = mesesComLancamento().length;
+    // Duas partes e dois meses: abaixo disso qualquer nota seria chute.
+    if (partes.length < 2 || mesesTotais < 2) {
+      return { pronta: false, partes: partes, meses: mesesTotais };
+    }
+    var pesos = 0, soma = 0;
+    partes.forEach(function (p) { pesos += p.peso; soma += p.nota * p.peso; });
+    var valor = Math.round(soma / pesos);
+    return {
+      pronta: true, valor: valor, partes: partes, meses: mesesTotais,
+      faixa: valor >= 80 ? 'Excelente' : valor >= 65 ? 'Boa' : valor >= 45 ? 'Atenção' : 'Frágil',
+      cor: valor >= 80 ? 'var(--verde)' : valor >= 65 ? 'var(--verde)'
+         : valor >= 45 ? 'var(--ouro)' : 'var(--vermelho)'
+    };
+  }
+
+  function notaAnterior(ano, mes) {
+    var ant = mesAnteriorAo(ano, mes);
+    if (mesesComLancamento().indexOf(prefixoMes(ant.ano, ant.mes)) < 0) return null;
+    var n = notaDaSaude(ant.ano, ant.mes);
+    return n.pronta ? n.valor : null;
+  }
+
+  // ---- os achados do mês --------------------------------------------------
+  // Cada achado carrega: o que é, por que aconteceu e o que dá para fazer.
+  // Prioridade 1 pede atenção agora; 3 é curiosidade e fica na análise
+  // completa, longe da tela principal.
+
+  // Quando o histórico é sempre o mesmo valor, "entre X e X" não é faixa.
+  function comoVoceCostuma(p) {
+    if (p.de === p.ate) return 'Você costuma gastar ' + emReais(p.mediana);
+    return 'Você costuma ficar entre ' + emReais(p.de) + ' e ' + emReais(p.ate);
+  }
+
+  function analiseDoMes(ano, mes) {
+    var achados = [];
+    var t = totaisDoMes(ano, mes);
+    var base = baseDeGastos(ano, mes);
+    var ant = mesAnteriorAo(ano, mes);
+    var temAnterior = mesesComLancamento().indexOf(prefixoMes(ant.ano, ant.mes)) >= 0;
+    var baseAnt = temAnterior ? baseDeGastos(ant.ano, ant.mes) : null;
+    var meta = metaDeEconomia();
+    var hoje = hojeTexto();
+    var noMesAtual = prefixoMes(ano, mes) === hoje.slice(0, 7);
+
+    function juntarAchado(a) { achados.push(a); }
+
+    // 1) Saldo negativo — nada é mais urgente que sair mais do que entrou.
+    if (t.entradas > 0 && t.entradas - base.total < 0) {
+      juntarAchado({
+        id: 'saldo', prioridade: 1, icone: '⚠', tom: 'ruim',
+        titulo: 'Saiu mais do que entrou',
+        valor: comSinal(t.entradas - base.total), valorCor: 'var(--vermelho)',
+        explicacao: 'Entraram ' + emReais(t.entradas) + ' e saíram ' + emReais(base.total) + '.',
+        detalhes: base.lista.slice(0, 3).map(function (c) {
+          return { rotulo: c.nome, valor: emReais(c.valor) };
+        }),
+        acao: { rotulo: 'Ver as saídas', abrir: function () { irParaTransacoes('saida', ''); } }
+      });
+    }
+
+    // 2) Categorias fora do próprio padrão. Preciso de pelo menos três meses
+    //    fechados para dizer que existe um padrão.
+    var foraDoPadrao = [];
+    base.lista.forEach(function (c) {
+      var hist = historicoDeGastos(ano, mes, c.nome, 6).filter(function (v) { return v > 0; });
+      if (hist.length < 3) return;
+      var p = faixaDoPadrao(hist);
+      if (!p.ate || c.valor <= p.ate) return;
+      var acima = c.valor - p.mediana;
+      var pctAcima = p.mediana > 0 ? (acima / p.mediana) * 100 : 0;
+      if (pctAcima < 25 || acima < 5000) return;
+      foraDoPadrao.push({ nome: c.nome, valor: c.valor, padrao: p, acima: acima, pct: pctAcima });
+    });
+    foraDoPadrao.sort(function (a, b) { return b.acima - a.acima; });
+
+    foraDoPadrao.slice(0, 2).forEach(function (f, i) {
+      juntarAchado({
+        id: 'padrao-' + f.nome, prioridade: i === 0 ? 1 : 2, icone: '🔎', tom: 'atencao',
+        titulo: f.nome + ' acima do seu padrão',
+        valor: '+' + emReais(f.acima), valorCor: 'var(--vermelho)',
+        explicacao: 'Este mês: ' + emReais(f.valor) + '. ' + comoVoceCostuma(f.padrao) + '.',
+        detalhes: [
+          { rotulo: 'Este mês', valor: emReais(f.valor) },
+          { rotulo: 'Seu padrão', valor: f.padrao.de === f.padrao.ate ? emReais(f.padrao.mediana)
+              : emReais(f.padrao.de) + ' – ' + emReais(f.padrao.ate) },
+          { rotulo: 'Diferença', valor: '+' + f.pct.toFixed(0) + '%' }
+        ],
+        acao: { rotulo: 'Ver lançamentos', abrir: function () { irParaTransacoes('saida', f.nome); } }
+      });
     });
 
-    if (atual.total > 0) {
-      var maior = atual.lista[0];
-      lista.push({
-        tom: 'info', pino: '★', cor: 'var(--ouro)', titulo: 'Maior gasto do mês',
-        texto: maior.nome + ' concentrou ' + Math.round(pct(maior.valor, atual.total)) +
-          '% das suas saídas, somando ' + emReais(maior.valor) + '.',
-        destaque: null
+    // 3) A fatura do cartão: o que ela tem dentro, e o que mudou nela.
+    var fatura = composicaoDoCartao(ano, mes);
+    if (fatura.total > 0) {
+      var faturaAnt = temAnterior ? composicaoDoCartao(ant.ano, ant.mes) : null;
+      var subiu = faturaAnt ? fatura.total - faturaAnt.total : 0;
+      var mudancas = [];
+      if (faturaAnt) {
+        var mapaAnt = {};
+        faturaAnt.lista.forEach(function (c) { mapaAnt[c.nome] = c.valor; });
+        fatura.lista.forEach(function (c) {
+          var dif = c.valor - (mapaAnt[c.nome] || 0);
+          if (dif > 0) mudancas.push({ nome: c.nome, dif: dif });
+        });
+        mudancas.sort(function (a, b) { return b.dif - a.dif; });
+      }
+
+      if (faturaAnt && subiu > 20000 && faturaAnt.total > 0 &&
+          (subiu / faturaAnt.total) * 100 >= 25) {
+        // Se o aumento da fatura é o mesmo aumento que já apontei numa
+        // categoria, não são duas notícias: é uma, com duas leituras.
+        var mesmaHistoria = mudancas.length && foraDoPadrao.length &&
+          mudancas[0].nome === foraDoPadrao[0].nome &&
+          Math.abs(mudancas[0].dif - foraDoPadrao[0].acima) <= foraDoPadrao[0].acima * 0.3;
+        if (mesmaHistoria) {
+          var jaTem = achados.filter(function (x) { return x.id === 'padrao-' + mudancas[0].nome; })[0];
+          if (jaTem) {
+            // Um número manda no cartão: a diferença para o próprio padrão.
+            // O cartão entra como origem, não como um segundo valor.
+            jaTem.explicacao += ' A diferença veio pela fatura do cartão.';
+            jaTem.acao = { rotulo: 'Analisar a fatura',
+                           abrir: function () { abrirComposicaoDaFatura(ano, mes); } };
+          }
+        } else {
+          juntarAchado({
+            id: 'fatura-subiu', prioridade: 1, icone: '💳', tom: 'atencao',
+            titulo: 'Sua fatura aumentou',
+            valor: '+' + emReais(subiu), valorCor: 'var(--vermelho)',
+            explicacao: 'De ' + emReais(faturaAnt.total) + ' para ' + emReais(fatura.total) +
+              ' em relação ao mês anterior.',
+            rotuloDetalhes: 'O que mudou',
+            detalhes: mudancas.slice(0, 3).map(function (m) {
+              return { rotulo: m.nome, valor: '+' + emReais(m.dif) };
+            }),
+            acao: { rotulo: 'Entender esse aumento',
+                    abrir: function () { abrirComposicaoDaFatura(ano, mes); } }
+          });
+        }
+      } else if (fatura.total >= base.total * 0.35 && base.total > 0) {
+        juntarAchado({
+          id: 'fatura-peso', prioridade: 2, icone: '💳', tom: 'info',
+          titulo: 'Seu maior impacto é o cartão',
+          valor: emReais(fatura.total), valorCor: 'var(--ouro)',
+          explicacao: Math.round(pct(fatura.total, base.total)) + '% das suas saídas passaram pelo cartão.',
+          rotuloDetalhes: 'Onde foi',
+          detalhes: fatura.lista.slice(0, 3).map(function (c) {
+            return { rotulo: c.nome, valor: emReais(c.valor) };
+          }),
+          acao: { rotulo: 'Analisar a fatura',
+                  abrir: function () { abrirComposicaoDaFatura(ano, mes); } }
+        });
+      }
+    }
+
+    // 4) A meta de economia, com o quanto falta em reais.
+    if (t.entradas > 0) {
+      var sobra = t.entradas - base.total;
+      var alvo = Math.round(t.entradas * meta / 100);
+      var falta = alvo - sobra;
+      if (falta > 0) {
+        juntarAchado({
+          id: 'meta-economia', prioridade: sobra <= 0 ? 1 : 2, icone: '🎯', tom: 'atencao',
+          titulo: 'Sua meta de economia',
+          valor: emReais(falta) + ' abaixo', valorCor: 'var(--ouro)',
+          explicacao: fraseDoGuardado(sobra, t.entradas, meta),
+          progresso: { feito: Math.max(sobra, 0), alvo: alvo },
+          nota: notaDoHistorico(ano, mes),
+          acao: { rotulo: 'Encontrar onde economizar',
+                  abrir: function () { abrirOndeEconomizar(ano, mes); } }
+        });
+      } else {
+        juntarAchado({
+          id: 'meta-batida', prioridade: 3, icone: '🎉', tom: 'bom',
+          titulo: 'Meta de economia batida',
+          valor: taxaDeGuardado(sobra, t.entradas) + '% guardados', valorCor: 'var(--verde)',
+          explicacao: 'Acima da sua meta de ' + meta + '%. Sobraram ' + emReais(sobra) + '.',
+          progresso: { feito: sobra, alvo: alvo },
+          nota: notaDoHistorico(ano, mes),
+          acao: null
+        });
+      }
+    }
+
+    // 5) Orçamento estourado.
+    if (estado.orcamentos.geral > 0 && base.total > estado.orcamentos.geral) {
+      juntarAchado({
+        id: 'orcamento', prioridade: 1, icone: '📊', tom: 'ruim',
+        titulo: 'Orçamento do mês estourado',
+        valor: '+' + emReais(base.total - estado.orcamentos.geral), valorCor: 'var(--vermelho)',
+        explicacao: 'Você planejou ' + emReais(estado.orcamentos.geral) + ' e gastou ' +
+          emReais(base.total) + '.',
+        acao: { rotulo: 'Ver as saídas', abrir: function () { irParaTransacoes('saida', ''); } }
       });
     }
 
-    if (!lista.length) {
-      lista.push({
-        tom: 'info', pino: '·', cor: 'var(--suave)', titulo: 'Ainda sem padrões',
-        texto: 'Registre lançamentos por alguns meses para eu comparar períodos e apontar tendências.',
-        destaque: null
+    // 6) Despesas que se repetem — o total comprometido não é economia.
+    var recorrentes = despesasRecorrentes();
+    if (recorrentes.length) {
+      var comprometido = recorrentes.reduce(function (s, r) { return s + r.valor; }, 0);
+      var revisaveis = recorrentesRevisaveis();
+      var potencial = revisaveis.reduce(function (s, r) { return s + r.valor; }, 0);
+      juntarAchado({
+        id: 'recorrentes', prioridade: revisaveis.length ? 2 : 3, icone: '🔁', tom: 'info',
+        titulo: recorrentes.length + ' despesas que se repetem',
+        valor: emReais(comprometido) + '/mês', valorCor: 'var(--texto)',
+        explicacao: revisaveis.length
+          ? revisaveis.length + ' delas podem valer uma revisão, somando ' + emReais(potencial) + '/mês.'
+          : 'Nenhuma delas é do tipo que costuma valer revisão.',
+        acao: revisaveis.length
+          ? { rotulo: 'Revisar despesas', abrir: function () { abrirRevisarRecorrentes(); } }
+          : null
       });
     }
 
-    return lista;
+    // 7) Projeção do fim do mês. Só no mês corrente, e só depois que já
+    //    passou um pedaço dele: com três dias de dados, projetar é adivinhar.
+    if (noMesAtual) {
+      var dia = +hoje.slice(8, 10);
+      var noMes = new Date(ano, mes + 1, 0).getDate();
+      var histTotal = historicoDeGastos(ano, mes, null, 6);
+      if (dia >= 8 && histTotal.length >= 3) {
+        var projetado = Math.round(base.total / dia * noMes);
+        var pad = faixaDoPadrao(histTotal);
+        var difProj = projetado - pad.mediana;
+        juntarAchado({
+          id: 'projecao', prioridade: Math.abs(difProj) > pad.mediana * 0.2 ? 2 : 3,
+          icone: '📈', tom: difProj > 0 ? 'atencao' : 'bom',
+          titulo: 'Estimativa para o fim do mês',
+          valor: '≈ ' + emReais(projetado), valorCor: difProj > 0 ? 'var(--ouro)' : 'var(--verde)',
+          explicacao: 'Você já gastou ' + emReais(base.total) + ' em ' + dia + ' dias. ' +
+            'Mantendo o ritmo, fecharia perto disso — é estimativa, não certeza.',
+          detalhes: [
+            { rotulo: 'Seu padrão', valor: emReais(pad.mediana) },
+            { rotulo: 'Diferença estimada', valor: comSinal(difProj) }
+          ],
+          acao: { rotulo: 'Ver as saídas', abrir: function () { irParaTransacoes('saida', ''); } }
+        });
+      }
+    }
+
+    // 8) O que melhorou. Fecha a conversa com o que deu certo.
+    if (baseAnt) {
+      var mapaA = {};
+      baseAnt.lista.forEach(function (c) { mapaA[c.nome] = c.valor; });
+      var quedas = [];
+      base.lista.forEach(function (c) {
+        var antes = mapaA[c.nome];
+        if (!antes) return;
+        var dif = antes - c.valor;
+        if (dif > 5000 && (dif / antes) * 100 >= 15) quedas.push({ nome: c.nome, dif: dif, antes: antes });
+      });
+      quedas.sort(function (a, b) { return b.dif - a.dif; });
+      if (quedas.length) {
+        juntarAchado({
+          id: 'queda', prioridade: 3, icone: '↓', tom: 'bom',
+          titulo: quedas[0].nome + ' caiu',
+          valor: '−' + emReais(quedas[0].dif), valorCor: 'var(--verde)',
+          explicacao: 'De ' + emReais(quedas[0].antes) + ' para ' +
+            emReais(quedas[0].antes - quedas[0].dif) + ' em relação ao mês anterior.',
+          acao: { rotulo: 'Ver lançamentos',
+                  abrir: function () { irParaTransacoes('saida', quedas[0].nome); } }
+        });
+      }
+    }
+
+    achados.sort(function (a, b) { return a.prioridade - b.prioridade; });
+
+    return {
+      totais: t, base: base, temAnterior: temAnterior,
+      achados: achados,
+      principais: achados.filter(function (a) { return a.prioridade <= 2; }).slice(0, 3),
+      proxima: achados.filter(function (a) { return a.acao && a.prioridade <= 2; })[0] || null,
+      meses: mesesComLancamento().length
+    };
+  }
+
+  // =========================================================================
+  // A tela de análise. Uma pergunta manda em cada elemento: isso ajuda a
+  // decidir alguma coisa? Se não ajuda, sai da frente e vai para a análise
+  // completa.
+  // =========================================================================
+
+  function irParaTransacoes(filtro, categoria) {
+    periodo.tipo = 'escolhido';
+    periodo.de = textoDeData(mesAtivo.ano, mesAtivo.mes, 1);
+    periodo.ate = fimDoMes(mesAtivo.ano, mesAtivo.mes);
+    filtroTransacoes = filtro || 'todas';
+    buscaTransacoes = categoria || '';
+    fecharFolha();
+    setTimeout(function () { irPara('transacoes'); }, 160);
+  }
+
+  function anelDaNota(nota, tamanho) {
+    var r = tamanho / 2 - 6;
+    var volta = 2 * Math.PI * r;
+    var svg = svgNo('svg', { viewBox: '0 0 ' + tamanho + ' ' + tamanho,
+                             width: tamanho, height: tamanho, 'class': 'anel-nota' });
+    svg.setAttribute('aria-hidden', 'true');
+    svg.appendChild(svgNo('circle', {
+      cx: tamanho / 2, cy: tamanho / 2, r: r, fill: 'none',
+      stroke: 'var(--borda)', 'stroke-width': 5
+    }));
+    var arco = svgNo('circle', {
+      cx: tamanho / 2, cy: tamanho / 2, r: r, fill: 'none',
+      stroke: nota.cor, 'stroke-width': 5, 'stroke-linecap': 'round',
+      transform: 'rotate(-90 ' + tamanho / 2 + ' ' + tamanho / 2 + ')'
+    });
+    arco.style.strokeDasharray = volta;
+    arco.style.strokeDashoffset = volta;
+    arco.style.transition = 'stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1)';
+    svg.appendChild(arco);
+    setTimeout(function () {
+      arco.style.strokeDashoffset = volta * (1 - Math.min(nota.valor, 100) / 100);
+    }, 60);
+    return svg;
+  }
+
+  function cartaoDeSaude(ano, mes) {
+    var c = cartao('saude');
+    var nota = notaDaSaude(ano, mes);
+
+    if (!nota.pronta) {
+      c.appendChild(no('div', 'rotulo', 'Saúde financeira'));
+      c.appendChild(no('div', 'saude-esperando', 'Conhecendo o seu padrão'));
+      c.appendChild(no('div', 'linha-nota',
+        nota.meses < 2
+          ? 'Com um mês de lançamentos ainda não dá para comparar nada. Siga registrando e a nota aparece.'
+          : 'Faltam informações para uma nota confiável. Registrar entradas, orçamento ou metas ajuda.'));
+      return c;
+    }
+
+    var linha = no('div', 'saude-linha');
+    var esq = no('div', 'saude-anel');
+    esq.appendChild(anelDaNota(nota, 84));
+    var meio = no('div', 'saude-num');
+    meio.appendChild(no('span', 'saude-valor', String(nota.valor)));
+    meio.appendChild(no('span', 'saude-de', '/100'));
+    esq.appendChild(meio);
+    linha.appendChild(esq);
+
+    var dir = no('div', 'saude-texto');
+    dir.appendChild(no('div', 'rotulo', 'Saúde financeira'));
+    var faixaEl = no('div', 'saude-faixa', nota.faixa);
+    faixaEl.style.color = nota.cor;
+    dir.appendChild(faixaEl);
+
+    var antes = notaAnterior(ano, mes);
+    if (antes != null) {
+      var d = nota.valor - antes;
+      var seta = d > 0 ? '↑' : d < 0 ? '↓' : '→';
+      var t = no('div', 'linha-nota', seta + ' ' + (d === 0 ? 'igual ao mês anterior'
+        : Math.abs(d) + ' ponto' + (Math.abs(d) === 1 ? '' : 's') +
+          (d > 0 ? ' a mais' : ' a menos') + ' que no mês anterior'));
+      t.style.color = d > 0 ? 'var(--verde)' : d < 0 ? 'var(--vermelho)' : 'var(--suave)';
+      dir.appendChild(t);
+    }
+    linha.appendChild(dir);
+    c.appendChild(linha);
+
+    var comoBotao = botao('btn-mini', 'Como calculamos', function () {
+      abrirComoCalculamos(nota);
+    });
+    comoBotao.style.marginTop = '12px';
+    c.appendChild(comoBotao);
+    return c;
+  }
+
+  function abrirComoCalculamos(nota) {
+    abrirFolha('Como calculamos', function (folha) {
+      var forma = no('div');
+      forma.appendChild(no('p', 'linha-sub',
+        'A nota é a média das partes abaixo, cada uma com o seu peso. Só entra na conta ' +
+        'o que tem dado de verdade: sem metas, sem orçamento ou sem cartão, essas partes ' +
+        'não pesam — em vez de virarem zero e derrubarem a sua nota.'));
+      var c = cartao();
+      nota.partes.forEach(function (p) {
+        var l = no('div', 'parte-nota');
+        var topo = no('div', 'parte-topo');
+        topo.appendChild(no('span', null, p.rotulo));
+        topo.appendChild(no('span', 'num', Math.round(p.nota) + '/100'));
+        l.appendChild(topo);
+        l.appendChild(no('div', 'linha-nota', p.detalhe + '  ·  peso ' + p.peso));
+        var barra = no('div', 'parte-barra');
+        var dentro = no('div', 'parte-cheio');
+        dentro.style.width = Math.min(100, Math.max(0, p.nota)) + '%';
+        barra.appendChild(dentro);
+        l.appendChild(barra);
+        c.appendChild(l);
+      });
+      forma.appendChild(c);
+      var faltando = ['sobra', 'padrao', 'orcamento', 'cartao', 'metas', 'investir']
+        .filter(function (ch) {
+          return !nota.partes.some(function (p) { return p.chave === ch; });
+        });
+      if (faltando.length) {
+        var nomes = { sobra: 'quanto sobrou', padrao: 'comparação com o seu padrão',
+                      orcamento: 'orçamento', cartao: 'cartão', metas: 'metas',
+                      investir: 'investimentos' };
+        forma.appendChild(no('p', 'linha-nota',
+          'Fora da conta por falta de dados: ' +
+          faltando.map(function (ch) { return nomes[ch]; }).join(', ') + '.'));
+      }
+      folha.appendChild(forma);
+    });
+  }
+
+  // Um achado na tela: título curto, número, uma explicação e um caminho.
+  function cartaoDeAchado(a, indice) {
+    var c = cartao('achado tom-' + a.tom);
+    c.style.animationDelay = (indice * 60) + 'ms';
+
+    var topo = no('div', 'achado-topo');
+    topo.appendChild(no('span', 'achado-icone', a.icone));
+    topo.appendChild(no('span', 'achado-titulo', a.titulo));
+    c.appendChild(topo);
+
+    if (a.valor) {
+      var v = no('div', 'achado-valor', a.valor);
+      if (a.valorCor) v.style.color = a.valorCor;
+      c.appendChild(v);
+    }
+    c.appendChild(no('p', 'achado-texto', a.explicacao));
+
+    if (a.progresso) {
+      var barra = no('div', 'meta-barra');
+      var dentro = no('div', 'meta-cheio');
+      dentro.style.width = Math.min(100, pct(a.progresso.feito, a.progresso.alvo)) + '%';
+      barra.appendChild(dentro);
+      c.appendChild(barra);
+      var leg = no('div', 'meta-legenda');
+      leg.appendChild(no('span', null, emReais(a.progresso.feito) + ' guardados'));
+      leg.appendChild(no('span', null, 'meta ' + emReais(a.progresso.alvo)));
+      c.appendChild(leg);
+    }
+
+    if (a.nota) c.appendChild(no('div', 'achado-nota', a.nota));
+
+    if (a.detalhes && a.detalhes.length) {
+      var d = no('div', 'achado-detalhes');
+      if (a.rotuloDetalhes) d.appendChild(no('div', 'rotulo', a.rotuloDetalhes));
+      a.detalhes.forEach(function (x) {
+        var l = no('div', 'achado-linha');
+        l.appendChild(no('span', null, x.rotulo));
+        l.appendChild(no('span', 'num', x.valor));
+        d.appendChild(l);
+      });
+      c.appendChild(d);
+    }
+
+    if (a.acao) {
+      var b = botao('btn-acao', a.acao.rotulo + ' ›', a.acao.abrir);
+      c.appendChild(b);
+    }
+    return c;
+  }
+
+  // A composição da fatura: para onde o dinheiro do cartão foi de verdade.
+  function abrirComposicaoDaFatura(ano, mes) {
+    var f = composicaoDoCartao(ano, mes);
+    abrirFolha('Sua fatura em ' + MESES[mes], function (folha) {
+      var forma = no('div');
+      var topo = cartao();
+      topo.appendChild(no('div', 'rotulo', 'Compras no cartão'));
+      topo.appendChild(no('div', 'valorao num', emReais(f.total)));
+      topo.appendChild(no('div', 'linha-nota',
+        'Pagar a fatura tira dinheiro da conta, mas o gasto foram estas compras. ' +
+        'O app conta uma vez só, para o mês não parecer pior do que foi.'));
+      forma.appendChild(topo);
+
+      var c = cartao();
+      c.appendChild(no('div', 'rotulo', 'Distribuição'));
+      if (!f.lista.length) {
+        c.appendChild(no('div', 'linha-nota', 'Nenhuma compra lançada no cartão neste mês.'));
+      }
+      f.lista.forEach(function (x) {
+        var l = botao('linha', null, function () { irParaTransacoes('saida', x.nome); });
+        var barra = no('div', 'mini-barra');
+        var dentro = no('div', 'mini-cheio');
+        dentro.style.width = pct(x.valor, f.total) + '%';
+        dentro.style.background = corDeCategoria(x.nome);
+        barra.appendChild(dentro);
+        juntar(l,
+          juntar(no('div', 'linha-texto'),
+            no('div', 'linha-titulo', x.nome),
+            barra),
+          juntar(no('div', 'linha-fim'),
+            no('div', 'linha-valor num', emReais(x.valor)),
+            no('div', 'linha-nota', Math.round(pct(x.valor, f.total)) + '%')));
+        c.appendChild(l);
+      });
+      forma.appendChild(c);
+      folha.appendChild(forma);
+    });
+  }
+
+  // Onde dá para melhorar: categorias acima do próprio padrão. O número é a
+  // diferença para o costume, e é chamado de potencial — não de promessa.
+  function abrirOndeEconomizar(ano, mes) {
+    var base = baseDeGastos(ano, mes);
+    var achados = [];
+    base.lista.forEach(function (c) {
+      var hist = historicoDeGastos(ano, mes, c.nome, 6).filter(function (v) { return v > 0; });
+      if (hist.length < 3) return;
+      var p = faixaDoPadrao(hist);
+      var acima = c.valor - p.mediana;
+      if (acima < 3000) return;
+      achados.push({ nome: c.nome, valor: c.valor, padrao: p, potencial: acima });
+    });
+    achados.sort(function (a, b) { return b.potencial - a.potencial; });
+
+    abrirFolha('Onde você pode melhorar', function (folha) {
+      var forma = no('div');
+      if (!achados.length) {
+        forma.appendChild(no('p', 'linha-sub',
+          'Nenhuma categoria está acima do seu padrão neste mês — ou ainda não tenho ' +
+          'três meses de histórico para comparar. Sem isso, apontar um lugar para cortar ' +
+          'seria chute.'));
+        folha.appendChild(forma);
+        return;
+      }
+      var total = achados.reduce(function (s, a) { return s + a.potencial; }, 0);
+      forma.appendChild(no('p', 'linha-sub',
+        'Estas categorias estão acima do que você costuma gastar. O valor é a diferença ' +
+        'para o seu próprio padrão: é um potencial, não uma garantia.'));
+
+      var c = cartao();
+      achados.forEach(function (a) {
+        var l = botao('linha', null, function () { irParaTransacoes('saida', a.nome); });
+        juntar(l,
+          selo(corDeCategoria(a.nome), a.nome.charAt(0)),
+          juntar(no('div', 'linha-texto'),
+            no('div', 'linha-titulo', a.nome),
+            no('div', 'linha-sub', emReais(a.valor) + ' · costuma ser ' + emReais(a.padrao.mediana))),
+          juntar(no('div', 'linha-fim'),
+            no('div', 'linha-valor num ouro', emReais(a.potencial)),
+            no('div', 'linha-nota', 'potencial')));
+        c.appendChild(l);
+      });
+      forma.appendChild(c);
+
+      var soma = cartao();
+      soma.appendChild(no('div', 'rotulo', 'Potencial identificado'));
+      soma.appendChild(no('div', 'valorao num', emReais(total)));
+      soma.appendChild(no('div', 'linha-nota',
+        'Soma das diferenças para o seu padrão. Voltar ao costume nessas categorias ' +
+        'liberaria perto disso.'));
+      forma.appendChild(soma);
+      folha.appendChild(forma);
+    });
+  }
+
+  // Revisar as despesas que se repetem. O app nunca diz para cancelar: ele
+  // mostra o que se repete e pergunta se ainda faz sentido.
+  function abrirRevisarRecorrentes() {
+    montar();
+    function montar() {
+      var todas = despesasRecorrentes();
+      var comprometido = todas.reduce(function (s, r) { return s + r.valor; }, 0);
+      var lista = recorrentesRevisaveis();
+
+      abrirFolha('Despesas que se repetem', function (folha) {
+        var forma = no('div');
+        var topo = cartao();
+        topo.appendChild(no('div', 'rotulo', 'Total comprometido'));
+        topo.appendChild(no('div', 'valorao num', emReais(comprometido) + '/mês'));
+        topo.appendChild(no('div', 'linha-nota',
+          todas.length + ' lançamentos que se repetem. Isso é o que já está comprometido — ' +
+          'não é o quanto dá para economizar.'));
+        forma.appendChild(topo);
+
+        if (!lista.length) {
+          forma.appendChild(no('p', 'linha-sub',
+            'Nada aqui é do tipo que costuma valer uma revisão, ou você já marcou tudo ' +
+            'como "manter". Aluguel, imposto e financiamento ficam de fora de propósito.'));
+          folha.appendChild(forma);
+          return;
+        }
+
+        var potencial = lista.reduce(function (s, r) { return s + r.valor; }, 0);
+        var c = cartao();
+        c.appendChild(no('div', 'rotulo', 'Pode valer uma olhada'));
+        c.appendChild(no('div', 'linha-nota',
+          lista.length + ' despesa(s) somando ' + emReais(potencial) + '/mês. ' +
+          'O app não sabe se você ainda usa — quem sabe é você.'));
+
+        lista.forEach(function (r) {
+          var item = no('div', 'recorrente');
+          var linha = botao('linha', null, function () {
+            irParaTransacoes('saida', nomeDeOrigem(r.descricao) || r.categoria);
+          });
+          juntar(linha,
+            selo(corDeCategoria(r.categoria), r.categoria.charAt(0)),
+            juntar(no('div', 'linha-texto'),
+              no('div', 'linha-titulo', r.descricao),
+              no('div', 'linha-sub', r.categoria + ' · em ' + r.meses + ' meses · último em ' +
+                dataBr(r.ultimo))),
+            no('div', 'linha-valor num', emReais(r.valor)));
+          item.appendChild(linha);
+
+          var acoes = no('div', 'recorrente-acoes');
+          acoes.appendChild(botao('btn-mini', 'Continuo usando', function () {
+            marcarRecorrente(r.chave, 'manter');
+            fecharFolha();
+            setTimeout(montar, 240);
+          }));
+          acoes.appendChild(botao('btn-mini', 'Ver lançamentos', function () {
+            irParaTransacoes('saida', nomeDeOrigem(r.descricao) || r.categoria);
+          }));
+          item.appendChild(acoes);
+          c.appendChild(item);
+        });
+        forma.appendChild(c);
+        folha.appendChild(forma);
+      });
+    }
+  }
+
+  function marcarRecorrente(chave, decisao) {
+    if (!estado.revisados) estado.revisados = {};
+    estado.revisados[chave] = decisao;
+    salvar();
+    avisar(decisao === 'manter' ? 'Marcada como em uso.' : 'Marcada para revisar.');
+  }
+
+  // Tudo o que o motor achou, inclusive o que é pequeno demais para brigar
+  // por espaço na tela principal.
+  function abrirAnaliseCompleta(ano, mes) {
+    var an = analiseDoMes(ano, mes);
+    abrirFolha('Análise de ' + MESES[mes], function (folha) {
+      var forma = no('div');
+      var faixas = [[1, 'Merece atenção agora'], [2, 'Vale acompanhar'], [3, 'Pequenos sinais']];
+      faixas.forEach(function (f) {
+        var doNivel = an.achados.filter(function (a) { return a.prioridade === f[0]; });
+        if (!doNivel.length) return;
+        var r = no('div', 'rotulo', f[1]);
+        r.style.margin = '18px 2px 8px';
+        forma.appendChild(r);
+        doNivel.forEach(function (a, i) { forma.appendChild(cartaoDeAchado(a, i)); });
+      });
+      if (!an.achados.length) {
+        forma.appendChild(no('p', 'linha-sub',
+          'Nada fora do comum neste mês. Continue registrando: quanto mais histórico, ' +
+          'mais fino fica o que eu consigo apontar.'));
+      }
+      folha.appendChild(forma);
+    });
+  }
+
+  // O bloco de análise no topo do Mais. Em cinco segundos: como estou, o que
+  // pede atenção, e o que dá para fazer.
+  function blocoDeAnalise() {
+    var caixa = no('div');
+    var ano = mesAtivo.ano, mes = mesAtivo.mes;
+    var an = analiseDoMes(ano, mes);
+
+    caixa.appendChild(cartaoDeSaude(ano, mes));
+
+    // Sem histórico não há análise: dizer qualquer coisa aqui seria inventar.
+    if (an.meses < 2 && !an.achados.length) {
+      var vazio = cartao();
+      vazio.appendChild(no('div', 'rotulo', 'Ainda conhecendo seu padrão'));
+      vazio.appendChild(no('p', 'achado-texto',
+        'Registre seus lançamentos por mais alguns meses. A partir daí eu comparo você ' +
+        'com você mesmo e mostro o que mudou.'));
+      caixa.appendChild(vazio);
+      return caixa;
+    }
+
+    if (!an.principais.length) {
+      var tudoBem = cartao('achado tom-bom');
+      var topoOk = no('div', 'achado-topo');
+      topoOk.appendChild(no('span', 'achado-icone', '✓'));
+      topoOk.appendChild(no('span', 'achado-titulo', 'Tudo dentro do padrão'));
+      tudoBem.appendChild(topoOk);
+      tudoBem.appendChild(no('p', 'achado-texto',
+        'Seus gastos estão perto do que costumam ser. Nada pedindo atenção neste mês.'));
+      caixa.appendChild(tudoBem);
+    } else {
+      an.principais.forEach(function (a, i) { caixa.appendChild(cartaoDeAchado(a, i)); });
+    }
+
+    if (an.proxima) {
+      var prox = cartao('proxima');
+      var topoP = no('div', 'achado-topo');
+      topoP.appendChild(no('span', 'achado-icone', '🚀'));
+      topoP.appendChild(no('span', 'achado-titulo', 'Próxima ação'));
+      prox.appendChild(topoP);
+      prox.appendChild(no('p', 'achado-texto', frasePraAcao(an.proxima)));
+      prox.appendChild(botao('btn btn-ouro', an.proxima.acao.rotulo, an.proxima.acao.abrir));
+      caixa.appendChild(prox);
+    }
+
+    var verTudo = botao('linha linha-verTudo', null, function () { abrirAnaliseCompleta(ano, mes); });
+    juntar(verTudo,
+      juntar(no('div', 'linha-texto'),
+        no('div', 'linha-titulo', 'Ver análise completa'),
+        no('div', 'linha-sub', an.achados.length + ' observação(ões) sobre ' + MESES[mes])),
+      no('div', 'linha-nota', '›'));
+    caixa.appendChild(verTudo);
+    return caixa;
+  }
+
+  // A próxima ação é sempre uma só, escrita como convite e não como ordem.
+  function frasePraAcao(a) {
+    if (a.id === 'fatura-subiu') return 'Sua fatura subiu. Veja quais compras causaram a diferença.';
+    if (a.id === 'meta-economia') return 'Veja em quais categorias existe espaço para chegar mais perto da sua meta.';
+    if (a.id === 'recorrentes') return 'Você tem despesas que se repetem todo mês. Vale conferir se todas ainda fazem sentido.';
+    if (a.id === 'saldo') return 'Este mês saiu mais do que entrou. Olhar as maiores saídas ajuda a entender por quê.';
+    if (a.id === 'orcamento') return 'O mês passou do que você tinha planejado. Vale ver onde a diferença aconteceu.';
+    if (a.id === 'projecao') return 'No ritmo atual o mês fecharia acima do seu costume. Dá tempo de ajustar.';
+    if (a.id.indexOf('padrao-') === 0) return a.titulo + '. Ver de onde veio a diferença ajuda a decidir o que fazer.';
+    return a.explicacao;
   }
 
   // ---------- Tela: Mais ----------
@@ -10316,30 +11800,7 @@
     tela.textContent = '';
     tela.appendChild(cabecalho('Mais', null, true));
 
-    // Análises
-    var cAna = cartao();
-    cAna.appendChild(topoDeCartao('Análise do mês', null));
-    cAna.appendChild(no('p', 'linha-sub', 'Padrões calculados a partir dos seus próprios lançamentos, dentro do aparelho.'));
-    var caixaAna = no('div');
-    caixaAna.style.marginTop = '12px';
-    gerarAnalises().forEach(function (i) {
-      var bloco = no('div', 'insight');
-      var topo = no('div', 'insight-topo');
-      var pino = no('div', 'pino', i.pino);
-      pino.style.background = i.cor + '22';
-      pino.style.color = i.cor;
-      juntar(topo, pino, no('span', null, i.titulo));
-      bloco.appendChild(topo);
-      bloco.appendChild(no('p', null, i.texto));
-      if (i.destaque) {
-        var d = no('div', 'destaque', i.destaque);
-        d.style.color = i.destaqueCor;
-        bloco.appendChild(d);
-      }
-      caixaAna.appendChild(bloco);
-    });
-    cAna.appendChild(caixaAna);
-    tela.appendChild(cAna);
+    tela.appendChild(blocoDeAnalise());
 
     // Relatórios
     var cRel = cartao('liso');
@@ -10405,15 +11866,29 @@
         avisar('Sincronizando…');
         sincronizar(false);
       });
+      var comFalha = !!falhaDaSincronia;
       juntar(sinc,
-        selo('#34D399', '↻'),
+        selo(comFalha ? '#FF6B6B' : '#34D399', comFalha ? '!' : '↻'),
         juntar(no('div', 'linha-texto'),
-          no('div', 'linha-titulo', 'Sincronizar agora'),
-          no('div', 'linha-sub', sessaoNuvem && sessaoNuvem.usuario.email
-            ? 'Conectado como ' + sessaoNuvem.usuario.email
-            : 'Enviar e trazer os dados do servidor')));
+          no('div', 'linha-titulo', comFalha ? 'Não está sincronizando' : 'Sincronizar agora'),
+          no('div', 'linha-sub', comFalha
+            ? falhaDaSincronia.seguidas + ' tentativa(s) sem sucesso · ' + falhaDaSincronia.mensagem
+            : (sessaoNuvem && sessaoNuvem.usuario.email
+                ? 'Conectado como ' + sessaoNuvem.usuario.email
+                : 'Enviar e trazer os dados do servidor'))));
+      if (comFalha) sinc.querySelector('.linha-sub').style.color = 'var(--vermelho)';
       cDados.appendChild(sinc);
     }
+
+    var versoes = botao('linha', null, function () {
+      window.open('versoes/', '_blank', 'noopener');
+    });
+    juntar(versoes,
+      selo('#94A3B4', '↩'),
+      juntar(no('div', 'linha-texto'),
+        no('div', 'linha-titulo', 'Versões guardadas'),
+        no('div', 'linha-sub', 'Se uma atualização der problema, abra a anterior')));
+    cDados.appendChild(versoes);
 
     var novidades = botao('linha', null, abrirNovidades);
     juntar(novidades,
@@ -10491,6 +11966,8 @@
   // ---------- Despacho ----------
 
   function desenhar() {
+    limparCacheDeFatura();
+    if (telaAtiva !== 'inicio') soltarExtratos();
     desenharNavegacao();
     if (telaAtiva === 'inicio') desenharInicio();
     else if (telaAtiva === 'transacoes') desenharTransacoes();
@@ -11552,9 +13029,11 @@
 
   // ---------- Folha: orçamento ----------
 
+  // O teto por categoria mede consumo, igual ao teto geral: a fatura paga
+  // não conta de novo aqui.
   function gastoDaCategoria(nomeCat) {
     var total = 0;
-    lancamentosDoMes(mesAtivo.ano, mesAtivo.mes).forEach(function (l) {
+    visaoDeConsumo(lancamentosDoMes(mesAtivo.ano, mesAtivo.mes)).lista.forEach(function (l) {
       if (l.tipo === 'saida' && l.categoria === nomeCat) total += l.valor;
     });
     return total;
@@ -11946,6 +13425,28 @@
       notaOrc.style.marginTop = '-8px';
       forma.appendChild(notaOrc);
 
+      // Quanto da renda você quer guardar. É a régua da análise: a nota de
+      // saúde e o "quanto falta" saem daqui.
+      var campoMeta = entradaSelecao(
+        [5, 10, 15, 20, 25, 30, 40, 50].map(function (n) {
+          return { valor: String(n), rotulo: n + '% da renda',
+                   detalhe: n <= 10 ? 'começando' : n <= 20 ? 'o mais comum' : 'agressivo' };
+        }), String(metaDeEconomia()), 'Quanto quer guardar por mês');
+      forma.appendChild(campo('Meta de economia', campoMeta));
+      var notaMeta = no('div', 'linha-nota');
+      notaMeta.style.marginTop = '-8px';
+      forma.appendChild(notaMeta);
+      function pintarMeta() {
+        var t = totaisDoMes(mesAtivo.ano, mesAtivo.mes);
+        var p = inteiro(campoMeta.value) || 20;
+        notaMeta.textContent = t.entradas > 0
+          ? 'Com a renda deste mês, isso seria guardar ' +
+            emReais(Math.round(t.entradas * p / 100)) + '.'
+          : 'É a régua da sua nota de saúde e do "quanto falta" na análise.';
+      }
+      campoMeta.aoMudar = function () { pintarMeta(); };
+      pintarMeta();
+
       var reserva = estado.perfil.reservaLigada !== false;
       var marcaReserva = botao('lembrar', null, function () {
         reserva = !reserva;
@@ -11963,6 +13464,7 @@
       var acoes = no('div', 'acoes');
       acoes.appendChild(botao('btn btn-ouro', 'Salvar', function () {
         estado.perfil.nome = campoNome.value.trim().slice(0, 40);
+        estado.perfil.metaEconomia = inteiro(campoMeta.value) || 20;
         estado.perfil.negocio = campoNegocio.value.trim().slice(0, 60);
         estado.perfil.contato = campoContato.value.trim().slice(0, 40);
         estado.perfil.reservaLigada = reserva;
@@ -12037,12 +13539,17 @@
       alvo.appendChild(par('Total investido', emReais(totalInvestido(null))));
       alvo.appendChild(par('Patrimônio líquido', emReais(patrimonio(null))));
 
-      alvo.appendChild(no('h2', null, 'Fluxo do mês'));
-      alvo.appendChild(par('Entradas', emReais(t.entradas), 'verde'));
-      alvo.appendChild(par('Saídas', emReais(t.saidas), 'vermelho'));
+      alvo.appendChild(no('h2', null, 'Resultado do mês'));
+      alvo.appendChild(par('Receitas', emReais(t.entradas), 'verde'));
+      alvo.appendChild(par('Despesas', emReais(t.saidas), 'vermelho'));
       alvo.appendChild(par('Resultado', emReais(t.saldo), t.saldo >= 0 ? 'verde' : 'vermelho'));
       if (t.entradas > 0) {
         alvo.appendChild(par('Taxa de poupança', ((t.saldo / t.entradas) * 100).toFixed(1).replace('.', ',') + '%'));
+      }
+      if (t.valorDasFaturas > 0) {
+        alvo.appendChild(no('p', 'rel-nota',
+          'Não entram em Despesas ' + emReais(t.valorDasFaturas) + ' de fatura de cartão paga neste mês: ' +
+          'as compras que formaram essa fatura já estão contadas acima, uma vez só.'));
       }
 
       if (estado.contas.length) {
@@ -12078,10 +13585,21 @@
     }
 
     if (tipo === 'fluxo') {
-      alvo.appendChild(no('h2', null, 'Resumo'));
+      // Este relatório é sobre dinheiro entrando e saindo das contas, não
+      // sobre consumo. Os dois números aparecem, cada um com seu nome.
+      alvo.appendChild(no('h2', null, 'Movimento das contas'));
       alvo.appendChild(par('Entradas', emReais(t.entradas), 'verde'));
-      alvo.appendChild(par('Saídas', emReais(t.saidas), 'vermelho'));
-      alvo.appendChild(par('Resultado', emReais(t.saldo), t.saldo >= 0 ? 'verde' : 'vermelho'));
+      alvo.appendChild(par('Saídas das contas', emReais(t.saidasCaixa), 'vermelho'));
+      alvo.appendChild(par('Resultado', emReais(t.saldoCaixa), t.saldoCaixa >= 0 ? 'verde' : 'vermelho'));
+      if (t.saidasCaixa !== t.saidas) {
+        alvo.appendChild(no('h2', null, 'Consumo do mês'));
+        alvo.appendChild(par('Despesas', emReais(t.saidas), 'vermelho'));
+        alvo.appendChild(no('p', 'rel-nota',
+          'São duas contas diferentes e as duas estão certas. "Saídas das contas" é o dinheiro ' +
+          'que deixou as contas no mês — a fatura paga entra aqui, a compra no cartão ainda não. ' +
+          '"Despesas" é o que foi gasto de fato — a compra no cartão entra aqui, a fatura paga não, ' +
+          'senão o mesmo gasto seria contado duas vezes.'));
+      }
 
       var itens = lancamentosDoMes(mesAtivo.ano, mesAtivo.mes).slice().sort(function (a, b) {
         return a.data < b.data ? -1 : a.data > b.data ? 1 : (a.criadoEm || 0) - (b.criadoEm || 0);
