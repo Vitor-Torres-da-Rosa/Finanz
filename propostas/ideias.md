@@ -13,6 +13,8 @@ casos, e não há erro de console.
 
 - [proposto 0007] O relatório de IR afirmava "Posição em 31/12" com o ano
   ainda correndo, mostrando o valor de hoje sob o rótulo de dezembro.
+- [proposto 0008] Os juros de atraso apareciam na parcela e na mensagem do
+  WhatsApp, mas não no "Falta" da ficha nem no resumo geral.
 - A ordenação do histórico de ativos depende do relógio do aparelho:
   valorAtivoEm percorre o array na ordem em que está e pega o último item
   com data <= o corte. O array é ordenado ao carregar (backup e servidor) e
