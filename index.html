@@ -16660,11 +16660,23 @@
     });
   }
 
-  // Um lançamento igual já na conta, no mesmo dia e valor, é repetido.
-  function jaTemIgual(item, contaId) {
-    return estado.lancamentos.some(function (l) {
-      return l.contaId === contaId && l.data === item.data && l.valor === item.valor && l.tipo === item.tipo;
+  // Repetido é o que já está lá, e "já está lá" é questão de quantidade,
+  // não de existir. Dois Pix de R$ 50,00 no mesmo dia são duas coisas
+  // diferentes: se a conta tem um e o extrato traz dois, um é repetido e o
+  // outro é novo. Antes bastava existir um igual para o app desmarcar todos
+  // e sumir com transação de verdade na importação.
+  function chaveDoIgual(l) {
+    return l.data + '|' + l.valor + '|' + l.tipo;
+  }
+
+  function quantosJaTem(contaId) {
+    var mapa = {};
+    estado.lancamentos.forEach(function (l) {
+      if (l.contaId !== contaId) return;
+      var k = chaveDoIgual(l);
+      mapa[k] = (mapa[k] || 0) + 1;
     });
+    return mapa;
   }
 
   function mostrarExtrato(lido, arquivo, problema, lote) {
@@ -16768,9 +16780,16 @@
     var folhaEl = $('folha');
     var rolagem = folhaEl.classList.contains('aberta') ? folhaEl.scrollTop : 0;
 
+    // Cada linha do arquivo consome uma das cópias que a conta já tem. A
+    // primeira igual é repetida, a segunda também se houver duas na conta,
+    // e a partir daí são novas.
+    var jaTem = quantosJaTem(contaId);
+    var gastos = {};
     itens.forEach(function (it) {
       if (it.repetido === undefined || it.contaConferida !== contaId) {
-        it.repetido = jaTemIgual(it, contaId);
+        var k = chaveDoIgual(it);
+        gastos[k] = (gastos[k] || 0) + 1;
+        it.repetido = gastos[k] <= (jaTem[k] || 0);
         it.contaConferida = contaId;
         it.usar = !it.repetido;
       }
