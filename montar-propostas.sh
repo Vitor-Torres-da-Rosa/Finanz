@@ -64,8 +64,8 @@ else
     echo "  <div class=\"t\">$TITULO</div>"
     if [ -f "$d/antes.png" ] && [ -f "$d/depois.png" ]; then
       echo '  <div class="par">'
-      echo "    <figure><figcaption>Antes</figcaption><img src=\"$NUM-$(basename "$d" | cut -d- -f2-)/antes.png\" alt=\"antes\"></figure>"
-      echo "    <figure><figcaption>Depois</figcaption><img src=\"$NUM-$(basename "$d" | cut -d- -f2-)/depois.png\" alt=\"depois\"></figure>"
+      echo "    <figure><figcaption>Antes</figcaption><img loading=\"lazy\" src=\"$NUM-$(basename "$d" | cut -d- -f2-)/antes.png\" alt=\"antes\"></figure>"
+      echo "    <figure><figcaption>Depois</figcaption><img loading=\"lazy\" src=\"$NUM-$(basename "$d" | cut -d- -f2-)/depois.png\" alt=\"depois\"></figure>"
       echo '  </div>'
     fi
     echo '  <div class="leia">'

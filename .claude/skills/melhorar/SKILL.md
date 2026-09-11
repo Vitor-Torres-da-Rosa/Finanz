@@ -79,7 +79,12 @@ antes e um de depois, é grande demais — quebre em partes e faça a primeira.
 - A suíte falha por motivo que não é seu e você não consegue explicar.
 - Acabaram as ideias e uma auditoria inteira não achou nada — diga isso e
   pare, em vez de inventar mudança para ter o que entregar.
-- Já há 10 propostas esperando decisão: encheu a fila, pare de produzir.
+
+Fila cheia não é motivo para parar: o Vitor pediu sem teto. Pode haver
+dezenas esperando decisão. Só tome dois cuidados quando a fila crescer:
+recorte os prints apertados (a pasta inteira de uma proposta deve ficar
+abaixo de 400 KB) e, antes de propor, confira se o assunto já não está na
+fila com outro número.
 
 ## Parou, ficou parado
 
