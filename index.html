@@ -10115,6 +10115,16 @@
       var saldo = saldoConta(id, null);
       var r = resumoDaConta(id);
 
+      // O banco mostra o que já aconteceu. Lançamento com data futura —
+      // parcela combinada, conta agendada — está certo no app e ainda não
+      // existe no extrato. Comparando o saldo cheio, a diferença aparecia
+      // como erro, e logo abaixo havia um botão oferecendo estragar o saldo
+      // inicial para "acertar" dinheiro que nem saiu. A conferência passa a
+      // comparar até hoje.
+      var hojeConf = hojeTexto();
+      var saldoHoje = saldoConta(id, hojeConf);
+      var aFrente = saldo - saldoHoje;
+
       forma.appendChild(no('p', 'linha-sub',
         'Compare o que está aqui com o extrato do banco. O saldo do app é o saldo inicial ' +
         'da conta mais tudo o que entrou, menos tudo o que saiu.'));
@@ -10126,8 +10136,15 @@
       conf.appendChild(no('div', 'linha-nota',
         'Saldo inicial ' + emReais(conta.saldoInicial) + ' + entradas ' + emReais(r.entrou) +
         ' − saídas ' + emReais(r.saiu)));
+      if (r.futuros > 0) {
+        conf.appendChild(no('div', 'linha-nota ouro',
+          r.futuros + ' lançamento(s) com data à frente de hoje' +
+          (aFrente ? ', somando ' + comSinal(aFrente) : '') +
+          '. O banco ainda não mostra isso, então a conferência usa ' + emReais(saldoHoje) +
+          ', o saldo até hoje.'));
+      }
 
-      var campoBanco = entradaValor(saldo, false);
+      var campoBanco = entradaValor(saldoHoje, false);
       conf.appendChild(campo('Saldo que o banco mostra', campoBanco));
 
       var diferenca = no('div', 'linha-nota');
@@ -10136,7 +10153,7 @@
 
       var ajustar = botao('btn btn-fantasma', 'Acertar o saldo inicial', function () {
         var alvo = digitosParaCentavos(campoBanco.value);
-        var falta = alvo - saldo;
+        var falta = alvo - saldoHoje;
         if (!falta) { avisar('Já está batendo.'); return; }
         perguntar({
           titulo: 'Acertar o saldo inicial?',
@@ -10158,7 +10175,7 @@
 
       function medirDiferenca() {
         var alvo = digitosParaCentavos(campoBanco.value);
-        var falta = alvo - saldo;
+        var falta = alvo - saldoHoje;
         if (!falta) {
           diferenca.textContent = 'Está batendo com o banco.';
           diferenca.className = 'linha-nota verde';
