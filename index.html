@@ -10663,6 +10663,17 @@
         bloco.appendChild(topoCat);
         bloco.appendChild(progresso(gasto, teto,
           usadoCat > 100 ? 'var(--vermelho)' : usadoCat > 80 ? 'var(--ouro)' : 'var(--verde)'));
+        // A barra sozinha não diz quanto: vermelha em 101% e em 300% é a
+        // mesma barra cheia. O teto geral já fala em reais; por categoria
+        // ficava só a cor, e a pessoa tinha que subtrair de cabeça.
+        var sobraCat = teto - gasto;
+        if (sobraCat < 0) {
+          bloco.appendChild(no('div', 'linha-nota vermelho',
+            'Passou ' + emReais(-sobraCat) + ' do teto.'));
+        } else if (usadoCat > 80) {
+          bloco.appendChild(no('div', 'linha-nota ouro',
+            'Faltam ' + emReais(sobraCat) + ' para o teto.'));
+        }
         cCat.appendChild(bloco);
       });
       tela.appendChild(cCat);
