@@ -24,7 +24,8 @@ motivo, para não voltar.
   com ele, não para uma passada sozinho.
 - [proposto 0004] Orçamento por categoria não avisa quando estoura — só
   mostra a barra.
-- O relatório de IR existe, mas não separa o que é dedutível.
+- [proposto 0005] O relatório de IR existe, mas não separa o que é
+  dedutível.
 
 ## Acabamento
 
