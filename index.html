@@ -213,6 +213,10 @@
   .legenda-item .nome { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .legenda-item .pct { color: var(--suave); font-size: 12.5px; }
   .legenda-item .val { font-size: 12.5px; color: var(--suave); }
+  .legenda-alvo { width: 100%; background: none; border: 0; padding: 4px 0; margin: -4px 0;
+                  color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .legenda-alvo:active { opacity: .6; }
+  .legenda-seta { color: var(--fraco); font-size: 15px; margin-left: 2px; flex: 0 0 auto; }
 
   /* ---------- Barras e progresso ---------- */
 
@@ -1579,7 +1583,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.5.0';
+  var VERSAO = '5.6.0';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1588,6 +1592,17 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '5.6.0',
+      data: '2026-09-13',
+      itens: [
+        'Na distribuição de gastos e de receitas, tocar numa categoria abre os lançamentos que formaram aquele número. "Alimentação R$ 500,00 27%" abre os três lançamentos que somam os R$ 500,00, do mais recente para o mais antigo, com o total de cada dia.',
+        'Tocando em "Demais" vêm todas as categorias que não couberam no gráfico, e a folha diz quais são.',
+        'Vale dos dois lados: em Receitas, a folha mostra o que entrou.',
+        'Da lista, tocar num lançamento abre ele para editar, como em qualquer outra tela.',
+        'O que a folha soma é exatamente o que está escrito na fatia: em despesas, a fatura paga continua de fora, porque as compras do cartão já estão contadas.'
+      ]
+    },
     {
       versao: '5.5.0',
       data: '2026-09-13',
@@ -4059,7 +4074,7 @@
       return { nome: nome, valor: mapa[nome] };
     }).sort(function (a, b) { return b.valor - a.valor; });
     return {
-      lista: ordenada, total: total,
+      lista: ordenada, total: total, base: base.lista,
       faturasPagas: base.faturasPagas, valorDasFaturas: base.valorDasFaturas, modo: base.modo
     };
   }
@@ -4280,10 +4295,15 @@
     return caixa;
   }
 
-  function legenda(segmentos, total) {
+  // `aoTocar` transforma cada fatia em botão: quem vê 34% numa categoria
+  // quer saber de onde saiu esse número, e o lugar de responder é a própria
+  // linha que mostra o número. Sem ele, a legenda continua sendo só legenda.
+  function legenda(segmentos, total, aoTocar) {
     var lista = no('div', 'legenda');
     segmentos.forEach(function (s, i) {
-      var item = no('div', 'legenda-item');
+      var item = aoTocar
+        ? botao('legenda-item legenda-alvo', null, function () { aoTocar(s); })
+        : no('div', 'legenda-item');
       var bolinha = no('i', 'bolinha');
       bolinha.style.background = s.cor || corDeCategoria(s.nome);
       juntar(item,
@@ -4292,6 +4312,10 @@
         no('span', 'val', emReais(s.valor)),
         no('span', 'pct', Math.round(pct(s.valor, total)) + '%')
       );
+      if (aoTocar) {
+        item.appendChild(no('span', 'legenda-seta', '\u203A'));
+        item.setAttribute('aria-label', 'Ver os lançamentos de ' + s.nome);
+      }
       lista.appendChild(item);
     });
     return lista;
@@ -6076,10 +6100,16 @@
                   : 'Os lançamentos de saída aparecem aqui divididos por categoria.'));
     } else {
       var seg = comCores(gastos.lista.slice(0, 6));
-      var outros = gastos.lista.slice(6).reduce(function (s, c) { return s + c.valor; }, 0);
+      var resto = gastos.lista.slice(6);
+      var outros = resto.reduce(function (s, c) { return s + c.valor; }, 0);
       if (outros > 0) seg.push({ nome: 'Demais', valor: outros, cor: '#4B5A6B' });
       cGastos.appendChild(rosca(seg, gastos.total, ehEntrada ? 'Receitas' : 'Gastos'));
-      cGastos.appendChild(legenda(seg, gastos.total));
+      cGastos.appendChild(legenda(seg, gastos.total, function (fatia) {
+        var nomes = fatia.nome === 'Demais'
+          ? resto.map(function (c) { return c.nome; })
+          : [fatia.nome];
+        abrirFolhaCategoria(faixa, abaDistribuicao, nomes, fatia.nome);
+      }));
     }
     if (gastos.valorDasFaturas > 0) {
       cGastos.appendChild(no('div', 'linha-nota',
@@ -10512,6 +10542,68 @@
       }
 
       folha.appendChild(forma);
+    });
+  }
+
+  // Ver de onde saiu uma fatia da rosca.
+  //
+  // Os lançamentos saem da mesma lista que gerou os números do cartão, não
+  // dos lançamentos crus do período: em despesas a fatura paga fica de fora,
+  // porque as compras do cartão já estão contadas. Listar o cru aqui daria
+  // uma soma diferente da que está escrita na fatia, e aí a tela discutiria
+  // consigo mesma.
+  //
+  // "Demais" não é categoria: é o resto que não coube na rosca. Por isso
+  // `nomes` é uma lista — uma categoria só, ou todas as do resto.
+  function abrirFolhaCategoria(faixa, tipo, nomes, rotulo) {
+    var lado = tipo === 'entrada' ? 'entrada' : 'saida';
+    var dados = porCategoriaDaLista(lancamentosNaFaixa(faixa), lado);
+    var quer = {};
+    nomes.forEach(function (n) { quer[n] = true; });
+    var itens = dados.base.filter(function (l) {
+      return l.tipo === lado && quer[l.categoria];
+    }).sort(function (a, b) { return a.data < b.data ? 1 : a.data > b.data ? -1 : 0; });
+    var soma = itens.reduce(function (t, l) { return t + l.valor; }, 0);
+
+    abrirFolha(rotulo, function (folha) {
+      var topo = cartao();
+      topo.appendChild(no('div', 'rotulo', lado === 'entrada' ? 'Recebido' : 'Gasto'));
+      topo.appendChild(no('div', 'valorao num' + (lado === 'entrada' ? ' verde' : ''), emReais(soma)));
+      topo.appendChild(no('div', 'linha-nota',
+        itens.length + (itens.length === 1 ? ' lançamento' : ' lançamentos') +
+        ' · ' + Math.round(pct(soma, dados.total)) + '% ' +
+        (lado === 'entrada' ? 'das receitas' : 'dos gastos') + ' ' + faixa.rotulo));
+      if (nomes.length > 1) {
+        topo.appendChild(no('div', 'linha-nota',
+          'Junta ' + nomes.length + ' categorias que não couberam no gráfico: ' +
+          nomes.join(', ') + '.'));
+      }
+      folha.appendChild(topo);
+
+      if (!itens.length) {
+        var vazio = cartao('liso');
+        vazio.appendChild(estadoVazio('Nada neste período',
+          'Nenhum lançamento desta categoria entre ' + dataBr(faixa.de) + ' e ' + dataBr(faixa.ate) + '.'));
+        folha.appendChild(vazio);
+        return;
+      }
+
+      var porDia = {};
+      var ordem = [];
+      itens.forEach(function (l) {
+        if (!porDia[l.data]) { porDia[l.data] = []; ordem.push(l.data); }
+        porDia[l.data].push(l);
+      });
+      ordem.forEach(function (data) {
+        var doDia = porDia[data];
+        var totalDia = doDia.reduce(function (t, l) { return t + l.valor; }, 0);
+        var cab = no('div', 'dia-cabecalho');
+        juntar(cab, no('div', 'dia-nome', nomeDoDia(data)), no('div', 'dia-total num', emReais(totalDia)));
+        folha.appendChild(cab);
+        var bloco = cartao('liso');
+        doDia.forEach(function (l) { bloco.appendChild(linhaLancamento(l)); });
+        folha.appendChild(bloco);
+      });
     });
   }
 
