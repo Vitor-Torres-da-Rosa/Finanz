@@ -8848,6 +8848,21 @@
     if (!cliente) return;
     var servicos = servicosDoCliente(clienteId);
     var servicoInicial = servicoId ? achar(estado.servicos, servicoId) : null;
+
+    // Registro que já tem parcela combinada saiu da fila: o que falta
+    // parcelar é o resto. Sobrando um só, ele já vem apontado — não há o que
+    // escolher. Sobrando dois ou mais o app não chuta, porque prender as
+    // parcelas ao registro errado bagunça a conta do cliente. Acréscimos que
+    // o próprio app criou não entram na conta: existem por causa de outro
+    // registro, não são o que o cliente comprou.
+    var comParcela = {};
+    parcelasDoCliente(clienteId).forEach(function (p) {
+      if (p.servicoId) comParcela[p.servicoId] = true;
+    });
+    var semParcela = servicos.filter(function (sv) {
+      return !ehAcrescimoDeParcelamento(sv) && !comParcela[sv.id];
+    });
+    var sozinhoNaFila = semParcela.length === 1 ? semParcela[0].id : '';
     var r = resumoCliente(clienteId);
     var jaParcelado = parcelasDoCliente(clienteId)
       .filter(function (p) { return !parcelaPaga(p); })
@@ -8868,7 +8883,7 @@
 
       var opcoesServico = [{ valor: '', rotulo: 'Sem registro específico' }].concat(
         servicos.map(function (sv) { return { valor: sv.id, rotulo: sv.nome, detalhe: (sv.tipo || 'Serviço') + ' · ' + emReais(sv.valor) }; }));
-      var campoServico = entradaSelecao(opcoesServico, servicoId || '', 'Referente a');
+      var campoServico = entradaSelecao(opcoesServico, servicoId || sozinhoNaFila, 'Referente a');
       forma.appendChild(campo('Referente a', campoServico));
 
       var campoData = entradaData(hojeTexto());
