@@ -1,4 +1,5 @@
-// Três categorias com teto: uma estourada, uma perto e uma folgada.
+// Quatro categorias com teto: a estourada tem nome no fim do alfabeto, para
+// a ordem aparecer.
 export default async function (page) {
   await page.evaluate(() => new Promise((res) => {
     const h = new Date();
