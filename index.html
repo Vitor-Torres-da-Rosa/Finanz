@@ -1583,7 +1583,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.6.0';
+  var VERSAO = '5.6.1';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1592,6 +1592,17 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '5.6.1',
+      data: '2026-09-13',
+      itens: [
+        'A identificação de transferência entre contas parou de exigir o mesmo dia. O que amarra o par é o valor; a data virou uma janela de até 5 dias para cada lado. Era o caso comum e passava batido: o Pix sai do C6 no dia 29, o outro extrato lança no dia 31, e o app não via transferência nenhuma — o mesmo dinheiro contava como despesa de um lado e receita do outro.',
+        'O nome nunca entrou nessa conta, e agora está claro por quê: cada banco escreve o seu. "Pix Enviado Para Vitor Torres F Da Rosa" de um lado e "PIX TRANSF VITOR T29/08" do outro são o mesmo Pix.',
+        'Quando as datas não batem, a linha mostra as duas e diz de quanto foi a diferença — "01/09/2026 → 03/09/2026 · chegou 2 dias depois" — para você conferir antes de juntar.',
+        'Com o mesmo valor aparecendo em mais de uma conta na janela, ganha o par mais perto no tempo, e cada lançamento entra num par só.',
+        'Juntando pares com datas diferentes, a transferência fica com a data da saída, que é quando o dinheiro saiu. A confirmação avisa.'
+      ]
+    },
     {
       versao: '5.6.0',
       data: '2026-09-13',
@@ -2223,6 +2234,11 @@
   function somaDias(texto, n) {
     var p = partes(texto);
     return deData(new Date(p.ano, p.mes, p.dia + n));
+  }
+
+  // Quantos dias `b` está depois de `a`. Negativo quando está antes.
+  function diasEntre(a, b) {
+    return Math.round((comoData(b) - comoData(a)) / 86400000);
   }
 
   function nomeDoDia(texto) {
@@ -6166,9 +6182,23 @@
 
   // ---------- Transferências entre contas ----------
   //
-  // Uma saída numa conta com a mesma data e o mesmo valor de uma entrada em
-  // outra conta é quase sempre o mesmo dinheiro andando de lugar. Isso não é
-  // receita nem despesa, mas eu não decido sozinho: só aponto.
+  // Uma saída numa conta com o mesmo valor de uma entrada em outra conta é
+  // quase sempre o mesmo dinheiro andando de lugar. Isso não é receita nem
+  // despesa, mas eu não decido sozinho: só aponto.
+  //
+  // O que amarra o par é o valor, e só ele. O nome nunca serviu: cada banco
+  // escreve o seu jeito — "Pix enviado para VITOR TORRES F DA ROSA" de um
+  // lado, "Pix recebido · Vitor Torres Fantinelli Da Rosa" do outro — e em
+  // transferência entre bancos diferentes nem o titular aparece igual.
+  //
+  // A data só delimita. Antes o par exigia o mesmo dia, e aí passava batido
+  // o caso comum: um extrato lança pela data em que o Pix saiu, o outro pela
+  // data em que processou. Um Pix enviado dia 29 chegava importado como dia
+  // 31, e o app não via transferência nenhuma — o dinheiro contava como
+  // despesa de um lado e receita do outro. Cinco dias para cada lado cobrem
+  // fim de semana e feriado, que é onde essa diferença nasce.
+
+  var JANELA_TRANSFERENCIA = 5;
 
   function chaveDoPar(a, b) {
     return a.id < b.id ? a.id + '|' + b.id : b.id + '|' + a.id;
@@ -6188,30 +6218,47 @@
     });
     if (!saidas.length || !entradas.length) return [];
 
-    // Entradas agrupadas por data e valor, para achar o par de uma vez.
-    var caixas = {};
+    // Entradas agrupadas só por valor: a data entra depois, como janela.
+    var porValor = {};
     entradas.forEach(function (l) {
-      var k = l.data + '|' + l.valor;
-      (caixas[k] || (caixas[k] = [])).push(l);
+      (porValor[l.valor] || (porValor[l.valor] = [])).push(l);
+    });
+
+    var possiveis = [];
+    saidas.forEach(function (s) {
+      var lista = porValor[s.valor];
+      if (!lista) return;
+      lista.forEach(function (e) {
+        if (e.contaId === s.contaId) return;
+        var dias = diasEntre(s.data, e.data);
+        if (Math.abs(dias) > JANELA_TRANSFERENCIA) return;
+        if (parIgnorado(s, e)) return;
+        possiveis.push({ saida: s, entrada: e, dias: dias, chave: chaveDoPar(s, e) });
+      });
+    });
+
+    // Com a janela aberta, um valor que se repete casa com mais de uma
+    // entrada. O par mais perto no tempo ganha, e cada lançamento entra num
+    // par só — senão o mesmo dinheiro seria juntado duas vezes.
+    possiveis.sort(function (a, b) {
+      var da = Math.abs(a.dias), db = Math.abs(b.dias);
+      if (da !== db) return da - db;
+      return a.saida.data < b.saida.data ? -1 : a.saida.data > b.saida.data ? 1 : 0;
     });
 
     var usados = {};
     var pares = [];
-    saidas.slice().sort(function (a, b) { return a.data < b.data ? -1 : a.data > b.data ? 1 : 0; })
-      .forEach(function (s) {
-        var lista = caixas[s.data + '|' + s.valor];
-        if (!lista) return;
-        for (var i = 0; i < lista.length; i++) {
-          var e = lista[i];
-          if (usados[e.id] || usados[s.id]) continue;
-          if (e.contaId === s.contaId) continue;
-          if (parIgnorado(s, e)) continue;
-          usados[e.id] = true;
-          usados[s.id] = true;
-          pares.push({ saida: s, entrada: e, chave: chaveDoPar(s, e) });
-          break;
-        }
-      });
+    possiveis.forEach(function (p) {
+      if (usados[p.saida.id] || usados[p.entrada.id]) return;
+      usados[p.saida.id] = true;
+      usados[p.entrada.id] = true;
+      pares.push(p);
+    });
+
+    // Na tela, do mais recente para o mais antigo, como todo resto do app.
+    pares.sort(function (a, b) {
+      return a.saida.data < b.saida.data ? 1 : a.saida.data > b.saida.data ? -1 : 0;
+    });
     return pares;
   }
 
@@ -6221,8 +6268,8 @@
     var soma = pares.reduce(function (t, p) { return t + p.saida.valor; }, 0);
     c.appendChild(no('div', 'linha-nota',
       pares.length === 1
-        ? 'Achei 1 saída que bate com uma entrada em outra conta, no mesmo dia e no mesmo valor.'
-        : 'Achei ' + pares.length + ' saídas que batem com entradas em outras contas, no mesmo dia e no mesmo valor.'));
+        ? 'Achei 1 saída com o mesmo valor de uma entrada em outra conta, no mesmo dia ou a poucos dias.'
+        : 'Achei ' + pares.length + ' saídas com o mesmo valor de entradas em outras contas, no mesmo dia ou a poucos dias.'));
     c.appendChild(no('div', 'valorao pequeno num azul', emReais(soma)));
     c.appendChild(no('div', 'linha-nota',
       'Enquanto não conferir, esse dinheiro conta como receita de um lado e despesa do outro.'));
@@ -6288,7 +6335,18 @@
         meio.appendChild(no('div', 'item-desc',
           (de ? de.nome : 'conta apagada') + ' → ' + (para ? para.nome : 'conta apagada')));
         var sub = no('div', 'item-sub');
-        sub.appendChild(no('span', null, dataBr(p.saida.data)));
+        // Com a janela de dias, a data sozinha não basta: quem confere
+        // precisa ver de quanto foi a diferença para decidir.
+        if (p.dias) {
+          var quantos = Math.abs(p.dias);
+          sub.appendChild(no('span', null,
+            dataBr(p.saida.data) + ' → ' + dataBr(p.entrada.data)));
+          sub.appendChild(no('span', 'ouro',
+            'chegou ' + quantos + (quantos === 1 ? ' dia ' : ' dias ') +
+            (p.dias > 0 ? 'depois' : 'antes')));
+        } else {
+          sub.appendChild(no('span', null, dataBr(p.saida.data)));
+        }
         sub.appendChild(no('span', null, (p.saida.descricao || p.saida.categoria).slice(0, 34)));
         meio.appendChild(sub);
         linha.appendChild(meio);
@@ -6319,6 +6377,13 @@
       texto: (juntar.length
         ? 'Cada par vira uma transferência só, sai das receitas e das despesas, e o saldo das duas contas continua igual. '
         : '') +
+        // Com datas diferentes o app tem de escolher uma, e escolhe a da
+        // saída: é quando o dinheiro de fato saiu da conta. Dizer isso
+        // agora evita a surpresa de ver a transferência num dia que não é
+        // o que o outro extrato mostrava.
+        (juntar.some(function (p) { return p.dias; })
+          ? 'Onde as datas não batem, fica a da saída — é quando o dinheiro saiu. '
+          : '') +
         (ignorar.length ? ignorar.length + ' par(es) ficam como estão e eu não pergunto de novo.' : ''),
       ok: 'Confirmar'
     }, function () {
