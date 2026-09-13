@@ -2276,6 +2276,20 @@
   var TIPOS_REGISTRO_BASE = ['Venda', 'Serviço'];
   var TIPO_PADRAO = 'Serviço';
 
+  // Que categoria de entrada o dinheiro de um registro merece no caixa.
+  // O registro já sabe se foi venda ou serviço; sem isso, tudo caía em
+  // "Serviços" e a distribuição de receitas mentia sobre a mistura do
+  // negócio. Tipo criado pela pessoa só vira categoria se ela já existir
+  // como categoria de entrada — não é papel do pagamento inventar
+  // categoria nova.
+  function categoriaDoRegistro(servico) {
+    var t = servico ? (servico.tipo || TIPO_PADRAO) : TIPO_PADRAO;
+    if (t === 'Venda' || t === 'Vendas') return 'Venda';
+    if (t === 'Outro' || t === 'Outros') return 'Outros';
+    if (t === 'Serviço' || t === 'Serviços') return 'Serviços';
+    return CATEGORIAS.entrada.indexOf(t) >= 0 ? t : 'Serviços';
+  }
+
   function tiposDeRegistro() {
     var extras = (estado && estado.tiposRegistro) || [];
     var lista = TIPOS_REGISTRO_BASE.slice();
@@ -9558,7 +9572,7 @@
               tipo: 'entrada',
               valor: valor,
               descricao: (cliente ? cliente.nome : 'Cliente') + (servico ? ' — ' + servico.nome : ''),
-              categoria: 'Serviços',
+              categoria: categoriaDoRegistro(servico),
               data: campoData.value,
               contaId: campoConta.value,
               contaDestinoId: '',
