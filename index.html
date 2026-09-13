@@ -13850,23 +13850,40 @@
       var fimDoAno = ano + '-12-31';
       var fimAnterior = (ano - 1) + '-12-31';
 
-      alvo.appendChild(no('h2', null, 'Posição em 31/12/' + ano));
+      // Com o ano ainda correndo, "em 31/12" é uma data que não chegou: o
+      // app mostrava o valor de hoje com o rótulo de dezembro, afirmando
+      // uma coisa que ainda não aconteceu. Enquanto o ano não fecha, a
+      // posição é a de hoje e a tela diz isso.
+      var agora = hojeTexto();
+      var anoAberto = fimDoAno > agora;
+      var ateAgora = anoAberto ? agora : fimDoAno;
+      var rotuloAte = anoAberto ? 'Hoje, ' + dataBr(agora) : 'Em 31/12/' + ano;
+
+      alvo.appendChild(no('h2', null, anoAberto
+        ? 'Posição hoje, ' + dataBr(agora)
+        : 'Posição em 31/12/' + ano));
+      if (anoAberto) {
+        alvo.appendChild(no('p', 'rel-nota',
+          'O ano de ' + ano + ' ainda não fechou. Estes são os valores de hoje, não os de ' +
+          '31/12 — a declaração pede a posição do último dia do ano, então volte aqui em janeiro.'));
+      }
       if (!estado.ativos.length) {
         alvo.appendChild(no('p', 'rel-nota', 'Nenhum ativo cadastrado.'));
       } else {
         alvo.appendChild(tabela(
           [{ rotulo: 'Ativo' }, { rotulo: 'Classe' }, { rotulo: 'Em 31/12/' + (ano - 1), numerica: true },
-           { rotulo: 'Em 31/12/' + ano, numerica: true }],
+           { rotulo: rotuloAte, numerica: true }],
           estado.ativos.map(function (a) {
             return [celula(a.nome), celula(a.classe),
                     celula(emReais(valorAtivoEm(a, fimAnterior))),
-                    celula(emReais(valorAtivoEm(a, fimDoAno)))];
+                    celula(emReais(valorAtivoEm(a, ateAgora)))];
           })
         ));
         alvo.appendChild(par('Total em 31/12/' + (ano - 1), emReais(totalInvestido(fimAnterior))));
-        alvo.appendChild(par('Total em 31/12/' + ano, emReais(totalInvestido(fimDoAno))));
-        alvo.appendChild(par('Variação no ano',
-          comSinal(totalInvestido(fimDoAno) - totalInvestido(fimAnterior))));
+        alvo.appendChild(par('Total ' + (anoAberto ? 'hoje' : 'em 31/12/' + ano),
+          emReais(totalInvestido(ateAgora))));
+        alvo.appendChild(par(anoAberto ? 'Variação no ano até aqui' : 'Variação no ano',
+          comSinal(totalInvestido(ateAgora) - totalInvestido(fimAnterior))));
       }
 
       var rendimentos = estado.lancamentos.filter(function (l) {
