@@ -1579,7 +1579,7 @@
 (function () {
   'use strict';
 
-  var VERSAO = '5.4.1';
+  var VERSAO = '5.5.0';
   // Estes nomes ficaram como nasceram, na época em que o app se chamava
   // Caixa. Trocar aqui apagaria os dados de quem já usa o app.
   var CHAVE = 'caixa.dados.v2';
@@ -1588,6 +1588,20 @@
   var CHAVE_SESSAO = 'caixa.sessao.v3';
 
   var NOVIDADES = [
+    {
+      versao: '5.5.0',
+      data: '2026-09-13',
+      itens: [
+        'A dívida dos cartões só crescia. Pagar a fatura tira dinheiro da conta corrente, e o app não contava esse pagamento como abatimento: cada compra somava e nada nunca saía. Num cartão com R$ 770,00 em aberto ele mostrava R$ 2.310,00. Transferência com destino no cartão abate igual, e o abatimento nunca passa do que foi devido.',
+        'O pagamento de cliente passou a entrar no caixa na categoria do que foi vendido. Tudo caía em "Serviços", mesmo o registro marcado como Venda, e a distribuição de receitas mentia sobre a mistura do negócio: onde aparecia 100% Serviços, agora aparece Venda e Serviços cada um com a sua fatia.',
+        'O campo "Referente a" já vem apontado quando não há o que escolher. Na folha de pagamento, quando o cliente tem um registro só. No parcelamento, quando sobrou um registro sem parcela combinada: com "Celular" e "TV" em aberto o campo fica vazio e você escolhe; depois de parcelar o Celular, a TV já vem apontada. Registro de acréscimo criado pelo próprio app não entra nessa conta.',
+        'No Planejar, o teto por categoria passou a dizer quanto. A barra vermelha era a mesma em 101% e em 300%; agora vem "Passou R$ 180,00 do teto" embaixo, e "Faltam R$ 40,00 para o teto" quando está perto.',
+        'A categoria estourada sobe para o topo da lista, depois as que estão perto, e o resto segue em ordem alfabética — igual ao cliente atrasado, que já subia na lista de clientes.',
+        'O relatório de Imposto de Renda parou de afirmar "Posição em 31/12" com o ano ainda correndo. Enquanto o ano não fecha, ele diz "Posição hoje" com a data de verdade e avisa para voltar em janeiro.',
+        'O mesmo relatório ganhou a lista de gastos de Saúde e Educação do ano, com total por categoria. É o trabalho chato de garimpar no extrato, já feito — não é conta de dedução, que é regra da Receita.',
+        'O aviso "não conta como despesa" virou etiqueta em vez de ficar emendado no subtítulo, onde virava uma frase só com a categoria e a conta.'
+      ]
+    },
     {
       versao: '5.4.1',
       data: '2026-09-11',
