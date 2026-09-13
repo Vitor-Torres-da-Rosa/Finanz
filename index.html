@@ -13869,6 +13869,41 @@
         alvo.appendChild(par('Total', emReais(rendimentos.reduce(function (s, l) { return s + l.valor; }, 0))));
       }
 
+      // Saúde e Educação são as categorias que quase sempre aparecem na
+      // declaração. O app não sabe o que é dedutível — quem sabe é a
+      // Receita e quem declara —, mas sabe separar o que foi gasto nelas
+      // no ano, que é o trabalho chato de garimpar no extrato.
+      var CATEGORIAS_IR = ['Saúde', 'Educação'];
+      var doAno = estado.lancamentos.filter(function (l) {
+        return l.tipo === 'saida' && l.data.indexOf(String(ano)) === 0 &&
+               CATEGORIAS_IR.indexOf(l.categoria) >= 0;
+      }).sort(function (a, b) { return a.data < b.data ? -1 : a.data > b.data ? 1 : 0; });
+
+      alvo.appendChild(no('h2', null, 'Gastos de Saúde e Educação em ' + ano));
+      if (!doAno.length) {
+        alvo.appendChild(no('p', 'rel-nota',
+          'Nenhuma saída nessas categorias neste ano.'));
+      } else {
+        alvo.appendChild(tabela(
+          [{ rotulo: 'Data' }, { rotulo: 'Categoria' }, { rotulo: 'Descrição' },
+           { rotulo: 'Valor', numerica: true }],
+          doAno.map(function (l) {
+            return [celula(dataBr(l.data)), celula(l.categoria),
+                    celula(l.descricao || '—'), celula(emReais(l.valor))];
+          })
+        ));
+        CATEGORIAS_IR.forEach(function (cat) {
+          var soma = doAno.reduce(function (s, l) { return l.categoria === cat ? s + l.valor : s; }, 0);
+          if (soma > 0) alvo.appendChild(par('Total em ' + cat, emReais(soma)));
+        });
+        alvo.appendChild(par('Total das duas',
+          emReais(doAno.reduce(function (s, l) { return s + l.valor; }, 0))));
+        alvo.appendChild(no('p', 'rel-nota',
+          'Esta lista é um ponto de partida, não uma conta de dedução. O que entra na ' +
+          'declaração, com que limite e com que comprovante, é regra da Receita — ' +
+          'confirme com quem faz a sua declaração antes de usar qualquer número daqui.'));
+      }
+
       alvo.appendChild(no('p', 'rel-nota',
         'Este relatório é um apoio montado com os dados que você mesmo cadastrou. ' +
         'Ele não substitui os informes oficiais dos bancos e corretoras, que são a fonte válida para a declaração.'));
