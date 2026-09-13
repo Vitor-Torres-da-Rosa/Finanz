@@ -1493,6 +1493,8 @@
   .etiqueta.aberto { background: rgba(233,180,76,.14); color: var(--ouro); }
   .etiqueta.atrasado { background: rgba(248,113,113,.14); color: var(--vermelho); }
   .etiqueta.hoje { background: rgba(61,220,132,.16); color: var(--verde); }
+  .etiqueta.fora { background: rgba(255,255,255,.05); color: var(--fraco);
+                   border: 1px solid var(--borda); display: inline-block; }
   .cartao.recado { padding: 14px 16px; }
   .recado-topo { display: flex; align-items: flex-start; gap: 9px; }
   .recado-icone { font-size: 16px; line-height: 1.35; }
@@ -9918,16 +9920,24 @@
     } else {
       var conta = achar(estado.contas, l.contaId);
       sub = l.categoria + (conta ? ' · ' + conta.nome : '');
-      // A linha continua aqui, com o valor certo — ela só não entra no
-      // total de despesas, e a pessoa merece saber disso olhando.
-      if (l.tipo === 'saida' && !contaComoDespesa(l)) sub += ' · não conta como despesa';
+    }
+
+    // A linha continua aqui, com o valor certo — ela só não entra no total
+    // de despesas. Emendado no subtítulo, esse aviso virava uma frase só
+    // com a categoria e a conta; como etiqueta, dá para ver de relance.
+    var foraDaDespesa = l.tipo === 'saida' && !contaComoDespesa(l);
+    var texto = juntar(no('div', 'linha-texto'),
+      no('div', 'linha-titulo', l.descricao || (l.tipo === 'transferencia' ? 'Transferência' : l.categoria)),
+      no('div', 'linha-sub', sub));
+    if (foraDaDespesa) {
+      var marca = no('span', 'etiqueta fora', 'não conta como despesa');
+      marca.style.marginTop = '5px';
+      texto.appendChild(marca);
     }
 
     juntar(b,
       selo(cor, sinal),
-      juntar(no('div', 'linha-texto'),
-        no('div', 'linha-titulo', l.descricao || (l.tipo === 'transferencia' ? 'Transferência' : l.categoria)),
-        no('div', 'linha-sub', sub)),
+      texto,
       juntar(no('div', 'linha-fim'),
         no('div', 'linha-valor num ' + (l.tipo === 'entrada' ? 'verde' : l.tipo === 'saida' ? 'vermelho' : ''),
           (l.tipo === 'entrada' ? '+ ' : l.tipo === 'saida' ? '− ' : '') + emReais(l.valor)))
